@@ -41,6 +41,7 @@ sqp
   useFeedbackPolicy                     false
   integratorType                        RK2
   threadPriority                        50
+  solverCpuList                         8,9
 }
 
 ; Rollout settings

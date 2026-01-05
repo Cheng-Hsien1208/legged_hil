@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+
+<launch>
+      <arg name="robot_type" default="$(env ROBOT_TYPE)" doc="Robot type: [a1, aliengo, go1, laikago]"/>
+      <arg name="ros_cpu_list" default="0,1" doc="CPU list for ROS nodes"/>
+      <arg name="ros_nice" default="-20" doc="Thread priority for ROS nodes"/>
+
+      <!-- make the files into global parameters -->
+      <param name="urdfFile" value="/tmp/legged_hil_control/$(arg robot_type).urdf"/>
+      <param name="taskFile" value="$(find legged_hil_controllers)/config/$(arg robot_type)/task.info"/>
+      <param name="referenceFile" value="$(find legged_hil_controllers)/config/$(arg robot_type)/reference.info"/>
+      <param name="gaitCommandFile" value="$(find legged_hil_controllers)/config/$(arg robot_type)/gait.info"/>
+      <param name="legged_controller_name" value="controllers/legged_hil_controller"/>
+
+
+      <rosparam file="$(find legged_hil_controllers)/config/controllers.yaml" command="load"/>
+      <rosparam file="$(find legged_hil_hw)/config/$(arg robot_type).yaml" command="load"/>
+
+      <node name="controller_loader" pkg="controller_manager" type="controller_manager"
+            output="screen" args="load
+            controllers/joint_state_controller
+            controllers/legged_hil_controller"
+            launch-prefix="nice -n $(arg ros_nice) taskset -c $(arg ros_cpu_list)"/>
+
+      <node pkg="ocs2_legged_robot_ros" type="legged_robot_gait_command" name="legged_robot_gait_command"
+            output="screen"
+            launch-prefix="nice -n $(arg ros_nice) taskset -c $(arg ros_cpu_list)"/>
+
+      <node pkg="legged_controllers" type="legged_target_trajectories_publisher" name="legged_robot_target"
+            output="screen"
+            launch-prefix="nice -n $(arg ros_nice) taskset -c $(arg ros_cpu_list)"/>
+
+      <node pkg="joy" type="joy_node" name="joy_node"
+            output="screen"
+            launch-prefix="nice -n $(arg ros_nice) taskset -c $(arg ros_cpu_list)"/>
+
+      <node pkg="legged_joy" type="xbox_joy_node" name="xbox_joy_node"
+            output="screen"
+            launch-prefix="nice -n $(arg ros_nice) taskset -c $(arg ros_cpu_list)">
+            <rosparam command="load" file="$(find legged_joy)/config/xbox_wired.yaml"/>
+      </node>
+</launch>

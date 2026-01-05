@@ -1,0 +1,57 @@
+joy_topic: "/joy"
+cmd_vel_topic: "/cmd_vel"
+robot_name: "legged_robot"
+
+switch_service: "/controller_manager/switch_controller"
+
+# Switch controller 參數
+switch_strictness: 2              # 0 = BEST_EFFORT, 1 = STRICT, 2 = BEST_EFFORT + ASAP
+switch_start_asap: true
+switch_timeout: 0.0               # 0 = no timeout
+
+# Main loop frequency
+loop_hz: 200.0
+
+# Deadzone of joystick
+deadzone: 0.1
+
+# Maximum translational velocities (m/s)
+max_vx: 1.0
+max_vy: 0.5
+max_vz: 1.2
+
+# Maximum orientation commands (rad)
+max_roll: 0.8
+max_pitch: 0.8
+max_yaw: 1.0
+
+# Speed multiplier config
+speed_mul_init: 1.0
+speed_mul_step: 0.1
+speed_mul_min: 0.1
+speed_mul_max: 2.0
+
+# ===============================
+#  Joystick Mapping (Xbox_wired)
+# ===============================
+xbox_map:
+  axes:
+    LX: 0
+    LY: 1
+    RX: 3
+    RY: 4
+    LT: 2
+    RT: 5
+    DPADX: 6
+    DPADY: 7
+
+  buttons:
+    A: 0
+    B: 1
+    X: 2
+    Y: 3
+    LB: 4
+    RB: 5
+    LS: 9
+    RS: 10
+

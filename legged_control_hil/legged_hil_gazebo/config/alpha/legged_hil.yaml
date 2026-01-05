@@ -1,0 +1,12 @@
+hil:
+  ch_joints: "JOINTS_MSG"
+  ch_imu: "IMU_MSG"
+  ch_contacts: "CONTACTS_MSG"
+  ch_cmd: "JOINT_CMD_MSG"
+
+  hz_joints: 1000.0
+  hz_imu: 400.0
+  hz_contacts: 100.0
+
+  kp_default: 0.0
+  kd_default: 40.0

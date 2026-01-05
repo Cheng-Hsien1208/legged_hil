@@ -1,0 +1,12 @@
+package legged_hil_lcm;
+
+struct contacts_msg_t
+{
+  int32_t num_contacts;
+
+  int32_t  sec[num_contacts];
+  int32_t  nsec[num_contacts]; 
+
+  string name[num_contacts];
+  boolean isContact[num_contacts];
+}

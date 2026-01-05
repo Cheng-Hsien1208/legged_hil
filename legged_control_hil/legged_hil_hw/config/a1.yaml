@@ -1,0 +1,11 @@
+legged_hil_hw:
+  loop_frequency: 1000
+  cycle_time_error_threshold: 0.002
+  kp: 10.0
+  kd: 3.0
+  lcm_cpu_list: "2,3"
+  wbc_cpu_list: "4,5" 
+  mpc_cpu_list: "6,7"
+  lcm_thread_priority: 80
+  wbc_thread_priority: 95
+  mpc_thread_priority: 50

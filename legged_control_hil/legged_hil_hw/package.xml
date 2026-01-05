@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>legged_hil_hw</name>
+    <version>0.0.0</version>
+    <description>Hardware interface for legged robot HIL control</description>
+    <maintainer email="chenghsien1208@gmail.com">Hsien</maintainer>
+
+    <license>BSD</license>
+    <author email="chenghsien1208@gmail.com">Hsien</author>
+
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <build_depend>cmake_clang_tools</build_depend>
+    <depend>roscpp</depend>
+    <depend>controller_manager</depend>
+    <depend>urdf</depend>
+
+    <depend>legged_hil_interface</depend>
+    <depend>legged_hil_controllers</depend>
+    <depend>legged_hil_mirle_description</depend>
+    <depend>legged_hil_unitree_description</depend>
+    <depend>legged_hil_lcm</depend>
+    <depend>legged_joy</depend>
+</package>

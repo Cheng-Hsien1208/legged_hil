@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>legged_hil_unitree_description</name>
+    <version>0.0.0</version>
+    <description>Unitree robot description files</description>
+    <maintainer email="chenghsien1208@gmail.com">Hsien</maintainer>
+    <license>BSD</license>
+
+    <!-- buildtool_depend: dependencies of the build process -->
+    <buildtool_depend>catkin</buildtool_depend>
+    <exec_depend>xacro</exec_depend>
+    <exec_depend>joint_state_publisher</exec_depend>
+    <exec_depend>robot_state_publisher</exec_depend>
+
+</package>

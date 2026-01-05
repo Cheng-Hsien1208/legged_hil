@@ -1,0 +1,8 @@
+hil:
+  ch_joints: "JOINTS_MSG"
+  ch_imu: "IMU_MSG"
+  ch_contacts: "CONTACTS_MSG"
+  ch_cmd: "JOINT_CMD_MSG"
+
+  state_delay: 1.0
+  cmd_delay: 1.0

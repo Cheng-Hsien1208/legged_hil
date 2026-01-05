@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>legged_hil_lcm_hw</name>
+    <version>0.0.0</version>
+    <description>ROS control warped interface for Unitree Robots</description>
+    <maintainer email="chenghsien1208@gmail.com">Hsien</maintainer>
+
+    <license>BSD</license>
+
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <build_depend>cmake_clang_tools</build_depend>
+    <depend>roscpp</depend>
+    <depend>legged_hil_lcm</depend>
+    <depend>legged_hil_hw</depend>
+</package>

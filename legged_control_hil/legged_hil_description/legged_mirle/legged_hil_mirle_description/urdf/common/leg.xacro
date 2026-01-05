@@ -1,0 +1,284 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:include filename="$(find legged_hil_mirle_description)/urdf/common/transmission.xacro"/>
+
+    <xacro:macro name="leg" params="prefix mesh_path side_x side_y">
+
+        <!-- hip -->
+        <joint name="${prefix}_HAA" type="revolute" >
+            <!-- LF RF -->
+            <xacro:if value="${(side_x == 1)}">
+                <origin rpy="0 0 0" xyz="${side_x*leg_offset_x} ${side_y*leg_offset_y} 0"/>
+            </xacro:if>
+            
+            <!-- LH RH -->
+            <xacro:if value="${(side_x == -1)}">
+                <origin rpy="0 0 ${pi}" xyz="${side_x*leg_offset_x} ${side_y*leg_offset_y} 0"/>
+            </xacro:if>
+
+            <parent link="base"/>
+            <child link="${prefix}_hip"/>
+            <axis xyz="1 0 0"/>
+            <dynamics damping="${damping}" friction="${friction}"/>
+            <limit effort="${hip_torque_max}" velocity="${hip_velocity_max}" lower="${hip_position_min}" upper="${hip_position_max}"/>
+        </joint>
+
+        <link name="${prefix}_hip">
+            <!-- LF RH -->
+            <xacro:if value="${(side_x == side_y)}">
+                <visual>
+                    <origin rpy="0 0 0" xyz="0 0 0"/>
+                    <geometry>
+                        <mesh filename="${mesh_path}/hip.stl" scale="1 1 1"/>
+                    </geometry>
+                    <material name="orange"/>
+                </visual>
+
+                <collision>
+                    <origin rpy="0 ${pi/2} 0" xyz="${hip_x_offset} 0 0"/>
+                    <geometry>
+                        <cylinder length="${hip_length}" radius="${hip_radius}"/>
+                    </geometry>
+                </collision>
+
+                <collision>
+                    <origin rpy="${pi/2} 0 0" xyz="0 ${hip_shoulder_y_offset} 0"/>
+                    <geometry>
+                        <cylinder length="${hip_shoulder_length}" radius="${hip_shoulder_radius}"/>
+                    </geometry>
+                </collision>
+
+                <inertial>
+                    <origin rpy="0 0 0" xyz="${hip_com_x} ${hip_com_y} ${hip_com_z}"/>
+                    <mass value="${hip_mass}"/>
+                    <inertia 
+                            ixx="${hip_mass*hip_ixx}" ixy="${hip_mass*hip_ixy}" ixz="${hip_mass*hip_ixz}"
+                            iyy="${hip_mass*hip_iyy}" iyz="${hip_mass*hip_iyz}" 
+                            izz="${hip_mass*hip_izz}"/>
+                </inertial>
+            </xacro:if>
+
+            <!-- RF LH -->
+            <xacro:if value="${(side_x != side_y)}">
+                <visual>
+                    <origin rpy="0 0 0" xyz="0 0 0"/>
+                    <geometry>
+                        <mesh filename="${mesh_path}/hip_mirror.stl" scale="1 1 1"/>
+                    </geometry>
+                    <material name="orange"/>
+                </visual>
+
+                <collision>
+                    <origin rpy="0 ${pi/2} 0" xyz="${hip_x_offset} 0 0"/>
+                    <geometry>
+                        <cylinder length="${hip_length}" radius="${hip_radius}"/>
+                    </geometry>
+                </collision>
+
+                <collision>
+                    <origin rpy="${pi/2} 0 0" xyz="0 ${-hip_shoulder_y_offset} 0"/>
+                    <geometry>
+                        <cylinder length="${hip_shoulder_length}" radius="${hip_shoulder_radius}"/>
+                    </geometry>
+                </collision>
+
+                <inertial>
+                    <origin rpy="0 0 0" xyz="${hip_mirror_com_x} ${hip_mirror_com_y} ${hip_mirror_com_z}"/>
+                    <mass value="${hip_mirror_mass}"/>
+                    <inertia 
+                            ixx="${hip_mirror_mass*hip_mirror_ixx}" ixy="${hip_mirror_mass*hip_mirror_ixy}" ixz="${hip_mirror_mass*hip_mirror_ixz}"
+                            iyy="${hip_mirror_mass*hip_mirror_iyy}" iyz="${hip_mirror_mass*hip_mirror_iyz}" 
+                            izz="${hip_mirror_mass*hip_mirror_izz}"/>
+                </inertial>
+            </xacro:if>
+        </link>
+
+        <!-- thigh -->
+        <joint name="${prefix}_HFE" type="revolute" >
+            <!-- LF -->
+            <xacro:if value="${(side_x == 1) and (side_y == 1)}">
+                <origin rpy="0 0 0" xyz="0 ${thigh_y_offset} 0"/>
+            </xacro:if>
+
+            <!-- RF -->
+            <xacro:if value="${(side_x == 1) and (side_y == -1)}">
+                <origin rpy="0 0 0" xyz="0 ${-thigh_y_offset} 0"/>
+            </xacro:if>
+
+            <!-- LH -->
+            <xacro:if value="${(side_x == -1) and (side_y == 1)}">
+                <origin rpy="0 0 ${pi}" xyz="0 ${-thigh_y_offset} 0"/>
+            </xacro:if>
+
+            <!-- RH -->
+            <xacro:if value="${(side_x == -1) and (side_y == -1)}">
+                <origin rpy="0 0 ${pi}" xyz="0 ${thigh_y_offset} 0"/>
+            </xacro:if>
+
+            <parent link="${prefix}_hip"/>
+            <child link="${prefix}_thigh"/>
+            <axis xyz="0 1 0"/>
+            <dynamics damping="${damping}" friction="${friction}"/>
+            <limit effort="${thigh_torque_max}" velocity="${thigh_velocity_max}" lower="${thigh_position_min}" upper="${thigh_position_max}"/>
+        </joint>
+
+        <link name="${prefix}_thigh">
+            <!-- LF LH -->
+            <xacro:if value="${(side_y == 1)}">
+                <visual>
+                    <material name="silver"/>
+                    <origin rpy="0 0 0" xyz="0 0 0"/>
+                    <geometry>
+                        <mesh filename="${mesh_path}/thigh.stl" scale="1 1 1"/>
+                    </geometry>
+                </visual>
+
+                <collision>
+                    <origin rpy="0 0 0" xyz="0 0 ${-thigh_height/2}"/>
+                    <geometry>
+                        <box size="${thigh_width} ${thigh_length} ${thigh_height}"/>
+                    </geometry>
+                </collision>
+
+                <inertial>
+                    <origin rpy="0 0 0" xyz="${thigh_com_x} ${thigh_com_y} ${thigh_com_z}"/>
+                    <mass value="${thigh_mass}"/>
+                    <inertia
+                            ixx="${thigh_mass*thigh_ixx}" ixy="${thigh_mass*thigh_ixy}" ixz="${thigh_mass*thigh_ixz}"
+                            iyy="${thigh_mass*thigh_iyy}" iyz="${thigh_mass*thigh_iyz}"
+                            izz="${thigh_mass*thigh_izz}"/>
+                </inertial>
+            </xacro:if>
+
+            <!-- RF RH -->
+            <xacro:if value="${(side_y == -1)}">
+                <visual>
+                    <material name="silver"/>
+                    <origin rpy="0 0 0" xyz="0 0 0"/>
+                    <geometry>
+                        <mesh filename="${mesh_path}/thigh_mirror.stl" scale="1 1 1"/>
+                    </geometry>
+                </visual>
+
+                <collision>
+                    <origin rpy="0 0 0" xyz="0 0 ${-thigh_height/2}"/>
+                    <geometry>
+                        <box size="${thigh_width} ${thigh_length} ${thigh_height}"/>
+                    </geometry>
+                </collision>
+
+                <inertial>
+                    <origin rpy="0 0 0" xyz="${-thigh_com_x} ${thigh_com_y} ${thigh_com_z}"/>
+                    <mass value="${thigh_mirror_mass}"/>
+                    <inertia
+                            ixx="${thigh_mirror_mass*thigh_mirror_ixx}" ixy="${thigh_mirror_mass*thigh_mirror_ixy}" ixz="${thigh_mirror_mass*thigh_mirror_ixz}"
+                            iyy="${thigh_mirror_mass*thigh_mirror_iyy}" iyz="${thigh_mirror_mass*thigh_mirror_iyz}"
+                            izz="${thigh_mirror_mass*thigh_mirror_izz}"/>
+                </inertial>
+            </xacro:if>
+        </link>
+
+        <!-- calf -->
+        <joint name="${prefix}_KFE" type="revolute" >
+            <origin rpy="0 0 0" xyz="0 0 ${calf_z_offset}"/>
+            <parent link="${prefix}_thigh"/>
+            <child link="${prefix}_calf"/>
+            <axis xyz="0 1 0"/>
+            <dynamics damping="${damping}" friction="${friction}"/>
+            <limit effort="${calf_torque_max}" velocity="${calf_velocity_max}" lower="${calf_position_min}" upper="${calf_position_max}"/>
+        </joint>
+
+        <link name="${prefix}_calf">
+            <visual>
+                <material name="silver"/>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <geometry>
+                    <mesh filename="${mesh_path}/calf.stl" scale="1 1 1"/>
+                </geometry>
+            </visual>
+
+            <collision>
+                <origin rpy="0 0 0" xyz="0 0 ${-calf_height/2}"/>
+                <geometry>
+                    <box size="${calf_width} ${calf_length} ${calf_height}"/>
+                </geometry>
+            </collision>
+
+            <inertial>
+                <origin rpy="0 0 0" xyz="${calf_com_x} ${calf_com_y} ${calf_com_z}"/>
+                <mass value="${calf_mass}"/>
+                <inertia
+                        ixx="${calf_mass*calf_ixx}" ixy="${calf_mass*calf_ixy}" ixz="${calf_mass*calf_ixz}"
+                        iyy="${calf_mass*calf_iyy}" iyz="${calf_mass*calf_iyz}"
+                        izz="${calf_mass*calf_izz}"/>
+            </inertial>
+        </link>
+
+       <!-- foot -->
+        <joint name="${prefix}_foot_fixed" type="fixed" dont_collapse="true">
+            <origin rpy="0 0.4372 0" xyz="0 0 -0.303541"/>
+            <parent link="${prefix}_calf"/>
+            <child link="${prefix}_FOOT"/>
+        </joint>
+
+        <link name="${prefix}_FOOT">
+            <visual>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <material name="silver"/>
+                <geometry>
+                    <mesh filename="${mesh_path}/foot.stl" scale="1 1 1"/>
+                </geometry>
+            </visual>
+
+            <collision>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <geometry>
+                    <sphere radius="${foot_radius}"/>
+                </geometry>
+            </collision>
+            <inertial>
+                <mass value="${foot_mass}"/>
+                <origin rpy="0 0 0" xyz="${foot_com_x} ${foot_com_y} ${foot_com_z}"/>
+                <inertia
+                        ixx="${foot_mass*foot_ixx}" ixy="${foot_mass*foot_ixy}" ixz="${foot_mass*foot_ixz}"
+                        iyy="${foot_mass*foot_iyy}" iyz="${foot_mass*foot_iyz}"
+                        izz="${foot_mass*foot_izz}"/>
+            </inertial>
+        </link>
+
+        <gazebo reference="${prefix}_foot_fixed">
+            <disableFixedJointLumping>true</disableFixedJointLumping>
+        </gazebo>
+
+        <gazebo reference="${prefix}_hip">
+            <mu1>0.2</mu1>
+            <mu2>0.2</mu2>
+            <material>Gazebo/DarkGrey</material>
+        </gazebo>
+        <gazebo reference="${prefix}_thigh">
+            <mu1>0.2</mu1>
+            <mu2>0.2</mu2>
+            <self_collide>0</self_collide>
+            <material>Gazebo/DarkGrey</material>
+            <kp value="1000000.0"/>
+            <kd value="100.0"/>
+        </gazebo>
+        <gazebo reference="${prefix}_calf">
+            <mu1>0.6</mu1>
+            <mu2>0.6</mu2>
+            <self_collide>1</self_collide>
+        </gazebo>
+        <gazebo reference="${prefix}_FOOT">
+            <mu1>0.6</mu1>
+            <mu2>0.6</mu2>
+            <self_collide>1</self_collide>
+            <material>Gazebo/Black</material>
+            <kp value="1000000.0"/>
+            <kd value="100.0"/>
+        </gazebo>
+
+        <xacro:leg_transmission prefix="${prefix}"/>
+    </xacro:macro>
+</robot>

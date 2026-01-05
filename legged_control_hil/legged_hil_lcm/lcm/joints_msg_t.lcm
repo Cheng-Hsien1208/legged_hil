@@ -1,0 +1,15 @@
+package legged_hil_lcm;
+
+struct joints_msg_t
+{
+  int32_t  num_joints;
+
+  int32_t  sec[num_joints];
+  int32_t  nsec[num_joints];  
+
+  string name[num_joints];
+
+  double position[num_joints];
+  double velocity[num_joints];
+  double effort[num_joints];
+}

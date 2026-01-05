@@ -1,0 +1,110 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot">
+
+    <xacro:arg name="robot_type" default="alpha"/>
+    <xacro:arg name="DEBUG" default="false"/>
+
+    <xacro:include filename="$(find legged_hil_mirle_description)/urdf/common/materials.xacro"/>
+    <xacro:include filename="$(find legged_hil_mirle_description)/urdf/common/leg.xacro"/>
+    <xacro:include filename="$(find legged_hil_mirle_description)/urdf/common/gazebo.xacro"/>
+    <xacro:include filename="$(find legged_hil_mirle_description)/urdf/common/imu.xacro"/>
+    <xacro:include filename="$(find legged_hil_mirle_description)/urdf/$(arg robot_type)/const.xacro"/>
+
+    <xacro:property name="mesh_path" value="package://legged_hil_mirle_description/meshes/$(arg robot_type)"/>
+
+    <!-- Debug mode will hung up the robot, use "true" or "false" to switch it. -->
+    <xacro:if value="$(arg DEBUG)">
+        <link name="world"/>
+        <joint name="base_static_joint" type="fixed" dont_collapse="true">
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <parent link="world"/>
+            <child link="base"/>
+        </joint>
+    </xacro:if>
+
+    <link name="base">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="${mesh_path}/trunk.stl" scale="1 1 1"/>
+            </geometry>
+            <material name="silver"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="${trunk_length} ${trunk_width} ${trunk_height}"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin rpy="0 0 0" xyz="${trunk_com_x} ${trunk_com_y} ${trunk_com_z}"/>
+            <mass value="${trunk_mass}"/>
+            <inertia
+                    ixx="${trunk_ixx}" ixy="${trunk_ixy}" ixz="${trunk_ixz}"
+                    iyy="${trunk_iyy}" iyz="${trunk_iyz}"
+                    izz="${trunk_izz}"/>
+        </inertial>
+    </link>
+
+    <gazebo reference="base">
+        <material>Gazebo/Silver</material>
+        <kp value="1000000.0"/>
+        <kd value="100.0"/>
+    </gazebo>
+
+    <xacro:IMU connected_to="base" imu_name="base_imu" xyz="0. 0. 0." rpy="0. 0. 0."/>
+    
+    <!-- legs -->
+    <xacro:leg prefix="LF" mesh_path="${mesh_path}" side_x="1" side_y="1"/>
+    <xacro:leg prefix="LH" mesh_path="${mesh_path}" side_x="-1" side_y="1"/>
+    <xacro:leg prefix="RF" mesh_path="${mesh_path}" side_x="1" side_y="-1"/>
+    <xacro:leg prefix="RH" mesh_path="${mesh_path}" side_x="-1" side_y="-1"/>
+
+
+    <!-- sensor frames -->
+    <!-- <joint name="camera_joint_front" type="fixed" dont_collapse="true">
+        <parent link="base"/>
+        <child link="front_camera"/>
+        <origin rpy="0 0 0" xyz="0.476 0 0.014"/>
+    </joint>
+    <link name="front_camera">
+    </link>
+
+    <joint name="lidar_joint_F_up5deg" type="fixed" dont_collapse="true">
+        <origin rpy="0 1.48352986 -1.57079633" xyz="0.4985 0 0.067885"/>
+        <parent link="base"/>
+        <child link="lidar_F_up5deg"/>
+        <axis xyz="0 0 0"/>
+    </joint>
+    <link name="lidar_F_up5deg">
+    </link>
+    
+    <joint name="lidar_joint_F_down46deg" type="fixed" dont_collapse="true">
+        <origin rpy="0 2.37364778 -1.57079633" xyz="0.44505 0 0.032297"/>
+        <parent link="base"/>
+        <child link="lidar_F_down46deg"/>
+        <axis xyz="0 0 0"/>
+    </joint>
+    <link name="lidar_F_down46deg">
+    </link>
+    
+    <joint name="lidar_joint_B_up5deg" type="fixed" dont_collapse="true">
+        <origin rpy="-0.0872664626 -1.57079633 1.57079633" xyz="-0.458992 0 0.060115"/>
+        <parent link="base"/>
+        <child link="lidar_B_up5deg"/>
+        <axis xyz="0 0 0"/>
+    </joint>
+    <link name="lidar_B_up5deg">
+    </link>
+    
+    <joint name="lidar_joint_B_down56deg" type="fixed" dont_collapse="true">
+        <origin rpy="0.802851863 -1.57079633 1.57079633" xyz="-0.441635 0 0.034095"/>
+        <parent link="base"/>
+        <child link="lidar_B_down56deg"/>
+        <axis xyz="0 0 0"/>
+    </joint>
+    <link name="lidar_B_down56deg">
+    </link> -->
+</robot>

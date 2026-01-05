@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>legged_joy</name>
+  <version>0.0.1</version>
+  <description>Xbox joystick teleop for OCS2 + legged_control (cmd_vel + gait switch + controller switch)</description>
+
+  <maintainer email="chenghsien1208@gmail.com">Hsien</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <!-- Build dependencies -->
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>controller_manager_msgs</build_depend>
+  <build_depend>ocs2_msgs</build_depend>
+  <build_depend>ocs2_core</build_depend>
+  <build_depend>ocs2_legged_robot_ros</build_depend>
+
+  <!-- Run dependencies -->
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>controller_manager_msgs</exec_depend>
+  <exec_depend>ocs2_msgs</exec_depend>
+  <exec_depend>ocs2_core</exec_depend>
+  <exec_depend>ocs2_legged_robot_ros</exec_depend>
+
+  <!-- (Optional but common) -->
+  <export>
+  </export>
+</package>

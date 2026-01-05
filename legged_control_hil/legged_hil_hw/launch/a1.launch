@@ -1,0 +1,7 @@
+<launch>
+    <arg name="ros_cpu_list" default="0"/>
+    <arg name="ros_nice" default="50"/>
+
+    <node name="legged_hil_lcm_hw" pkg="legged_hil_lcm_hw" type="legged_hil_lcm_hw_node" respawn="false" output="screen"
+        launch-prefix="nice -n $(arg ros_nice) taskset -c $(arg ros_cpu_list)"/>
+</launch>

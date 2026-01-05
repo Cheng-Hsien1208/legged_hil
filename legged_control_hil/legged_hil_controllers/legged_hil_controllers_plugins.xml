@@ -1,0 +1,9 @@
+<library path="lib/liblegged_hil_controllers">
+
+    <class name="legged/LeggedHilController" type="legged::LeggedHilController"
+           base_class_type="controller_interface::ControllerBase">
+        <description>
+            The basic legged controller.
+        </description>
+    </class>
+</library>

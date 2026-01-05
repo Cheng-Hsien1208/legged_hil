@@ -1,0 +1,21 @@
+<launch>
+    <arg name="robot_type" default="a1"/>
+    <arg name="ros_cpu_list" default="0,1"/>
+    <arg name="ros_nice" default="-20"/>
+
+    <param name="legged_robot_description" command="$(find xacro)/xacro $(find legged_hil_unitree_description)/urdf/robot.xacro
+       robot_type:=$(arg robot_type)
+    "/>
+    <node name="generate_urdf" pkg="legged_hil_interface" type="generate_urdf.sh" output="screen"
+          args="$(find legged_hil_unitree_description)/urdf/robot.xacro $(arg robot_type)"
+          launch-prefix="nice -n $(arg ros_nice) taskset -c $(arg ros_cpu_list)"/>
+
+    <rosparam file="$(find legged_hil_hw)/config/$(arg robot_type).yaml" command="load"/>
+    <rosparam file="$(find legged_hil_hw)/config/legged_hil.yaml" command="load"/>
+
+    <param name="robot_type" value="$(arg robot_type)"/>
+    <include file="$(find legged_hil_hw)/launch/$(arg robot_type).launch">
+        <arg name="ros_cpu_list" value="$(arg ros_cpu_list)"/>
+        <arg name="ros_nice" value="$(arg ros_nice)"/>
+    </include>
+</launch>

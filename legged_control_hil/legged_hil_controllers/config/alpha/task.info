@@ -26,8 +26,8 @@ swing_trajectory_config
 ; Multiple_Shooting SQP settings
 sqp
 {
-  nThreads                              13
-  dt                                    0.02
+  nThreads                              8
+  dt                                    0.01
   sqpIteration                          3
   deltaTol                              1e-4
   g_max                                 1e-2
@@ -35,13 +35,13 @@ sqp
   inequalityConstraintMu                0.1
   inequalityConstraintDelta             5.0
   projectStateInputEqualityConstraints  true
-  printSolverStatistics                 false
+  printSolverStatistics                 true
   printSolverStatus                     false
   printLinesearch                       false
   useFeedbackPolicy                     false
   integratorType                        RK2
   threadPriority                        50
-  solverCpuList                         8,9
+  solverCpuList                         8,10,12,14,9,11,13,15
 }
 
 ; Rollout settings
@@ -57,13 +57,13 @@ rollout
 
 mpc
 {
-  timeHorizon                     1.2  ; [s]
+  timeHorizon                     2.0  ; [s]
   solutionTimeWindow              -1   ; maximum [s]
   coldStart                       false
 
   debugPrint                      false
 
-  mpcDesiredFrequency             20  ; [Hz]
+  mpcDesiredFrequency             50  ; [Hz]
   mrtDesiredFrequency             1000 ; [Hz] Useless
 }
 

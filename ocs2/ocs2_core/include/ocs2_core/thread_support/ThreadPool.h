@@ -87,6 +87,7 @@ class ThreadPool {
    * @param [in] N: number of times to run taskFunction in parallel.
    */
   void runParallel(std::function<void(int)> taskFunction, int N);
+  void runParallelWorkersOnly(std::function<void(int)> taskFunction, int N);
 
   /** Get the number of threads. */
   size_t numThreads() const { return workerThreads_.size(); }

@@ -159,4 +159,28 @@ void ThreadPool::runParallel(std::function<void(int)> taskFunction, int N) {
   }
 }
 
+/**************************************************************************************************/
+/**************************************************************************************************/
+/**************************************************************************************************/
+void ThreadPool::runParallelWorkersOnly(std::function<void(int)> taskFunction, int N) {
+  if (N <= 0) return;
+
+  if (workerThreads_.empty()) {
+    taskFunction(0);
+    return;
+  }
+
+  const int numTasks = static_cast<int>(workerThreads_.size());
+
+  std::vector<std::future<void>> futures;
+  futures.reserve(numTasks);
+
+  for (int i = 0; i < numTasks; ++i) {
+    futures.emplace_back(run(taskFunction));
+  }
+
+  for (auto&& fut : futures) {
+    fut.get();
+  }
+}
 }  // namespace ocs2

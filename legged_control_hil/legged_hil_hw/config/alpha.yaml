@@ -1,5 +1,5 @@
 legged_hil_hw:
-  loop_frequency: 1000
+  loop_frequency: 500
   cycle_time_error_threshold: 0.002
   kp: 50.0
   kd: 40.0

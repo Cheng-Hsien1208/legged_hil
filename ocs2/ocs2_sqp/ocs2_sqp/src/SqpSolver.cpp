@@ -58,7 +58,8 @@ sqp::Settings rectifySettings(const OptimalControlProblem& ocp, sqp::Settings&& 
 SqpSolver::SqpSolver(sqp::Settings settings, const OptimalControlProblem& optimalControlProblem, const Initializer& initializer)
     : settings_(rectifySettings(optimalControlProblem, std::move(settings))),
       hpipmInterface_(OcpSize(), settings_.hpipmSettings),
-      threadPool_(std::max(settings_.nThreads, size_t(1)) - 1, settings_.threadPriority, settings_.solverCpuList),
+      // threadPool_(std::max(settings_.nThreads, size_t(1)) - 1, settings_.threadPriority, settings_.solverCpuList),
+      threadPool_(settings_.nThreads, settings_.threadPriority, settings_.solverCpuList),
       logger_(settings_.logSize) {
   Eigen::setNbThreads(1);  // No multithreading within Eigen.
   Eigen::initParallel();
@@ -274,7 +275,8 @@ void SqpSolver::runImpl(scalar_t initTime, const vector_t& initState, scalar_t f
 }
 
 void SqpSolver::runParallel(std::function<void(int)> taskFunction) {
-  threadPool_.runParallel(std::move(taskFunction), settings_.nThreads);
+  // threadPool_.runParallel(std::move(taskFunction), settings_.nThreads);
+  threadPool_.runParallelWorkersOnly(std::move(taskFunction), settings_.nThreads);
 }
 
 SqpSolver::OcpSubproblemSolution SqpSolver::getOCPSolution(const vector_t& delta_x0) {

@@ -15,6 +15,12 @@ clone後自行將meshes放入description資料夾中（meshes檔案太大無法�
 
 ### Build
 ```
+# Install dependencies
+sudo apt install liburdfdom-dev liboctomap-dev libassimp-dev
+sudo apt install ros-noetic-joy
+```
+
+```
 # ocs2
 catkin config -DCMAKE_BUILD_TYPE=RelWithDebInfo
 catkin build ocs2_legged_robot_ros ocs2_self_collision_visualization
@@ -29,7 +35,7 @@ catkin build legged_gazebo
 ```
 # legged hil Simulator
 catkin config -DCMAKE_BUILD_TYPE=RelWithDebInfo
-catkin build legged_hil_sim
+catkin build legged_hil_gazebo
 ```
 
 ```
@@ -100,6 +106,22 @@ roslaunch legged_hil_controllers load_controller.launch
 ```
 
 ### Controller : legged_hil_hw/launch/legged_hil_hw_robot_type.launch
+這裡使用一般sched，nice值範圍 = -20 ~ 19
+
+```
+<arg name="ros_cpu_list" default="16-31"/>
+<arg name="ros_thread_nice" default="-20"/>
+```
+
+### Controller : legged_hil_controllers/load_controller.launch
+這裡使用一般sched，nice值範圍 = -20 ~ 19
+
+```
+<arg name="ros_cpu_list" default="16-31"/>
+<arg name="ros_thread_nice" default="-20"/>
+```
+
+### Controller :  legged_hil_hw/config/robot_type.yaml
 這裡使用RT_sched, priority範圍 = 0 ~ 99
 cpu_list 必須一一列出並用逗號分隔, 中間不能有空白或 "-" 
 ```
@@ -115,15 +137,6 @@ legged_hil_hw:
   lcm_thread_priority: 80
   wbc_thread_priority: 95
   mpc_thread_priority: 50
-```
-
-### Controller : legged_hil_hw/config/robot_type.yaml
-這裡使用一般sched，nice值範圍 = -20 ~ 19
-
-
-```
-<arg name="ros_cpu_list" default="0,1"/>
-<arg name="ros_nice" default="-20"/>
 ```
 
 ### Controller : legged_hil_controllers/config/robot_type/task.info
@@ -145,3 +158,10 @@ sqp
   solverCpuList                         8,9
 }
 ```
+
+## Monitor Tools
+```
+htop
+lscpu -e
+pidstat -t -p <pid> 1
+pidstat -r -human -p <pid> 1

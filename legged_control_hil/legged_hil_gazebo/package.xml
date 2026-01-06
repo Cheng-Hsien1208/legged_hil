@@ -17,6 +17,8 @@
     <depend>gazebo_ros</depend>
     <depend>lcm</depend>
     <depend>legged_hil_lcm</depend>
+    <depend>legged_hil_mirle_description</depend>
+    <depend>legged_hil_unitree_description</depend>
 
     <export>
         <gazebo_ros_control plugin="${prefix}/legged_hil_hw_sim_plugins.xml"/>

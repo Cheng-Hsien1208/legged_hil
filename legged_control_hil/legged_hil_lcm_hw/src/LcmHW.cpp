@@ -62,6 +62,7 @@ bool LcmHW::init(ros::NodeHandle& root_nh, ros::NodeHandle& robot_hw_nh) {
     return true;
 }
 
+// ---- threading helpers ----
 bool LcmHW::parseCpuList(const std::string& cpuListStr, cpu_set_t& cpuset) {
   CPU_ZERO(&cpuset);
   if (cpuListStr.empty()) {
@@ -96,18 +97,16 @@ void LcmHW::lcmSpin() {
     }
 }
 
+// ---- LCM callbacks ----
 void LcmHW::onJoints(const lcm::ReceiveBuffer* rbuf, const std::string& chan, const legged_hil_lcm::joints_msg_t* msg) {
     std::lock_guard<std::mutex> lock(mtx_);
 
     for (int i = 0; i < msg->num_joints; ++i) {
-        const std::string& nm = msg->name[i];
-        auto it = jointNameToIndex_.find(nm);
-        if (it == jointNameToIndex_.end()) continue;
-
-        const int idx = it->second;
+        const int idx = msg->idx[i];
 
         jointData_[idx].sec  = msg->sec[i];
         jointData_[idx].nsec = msg->nsec[i];
+        jointData_[idx].idx = idx;
         jointData_[idx].pos_ = msg->position[i];
         jointData_[idx].vel_ = msg->velocity[i];
         jointData_[idx].tau_ = msg->effort[i];
@@ -120,7 +119,6 @@ void LcmHW::onImu(const lcm::ReceiveBuffer* rbuf, const std::string& chan, const
     std::lock_guard<std::mutex> lock(mtx_);
     imuData_.sec = msg->sec;
     imuData_.nsec = msg->nsec;
-    imuData_.frame_id = msg->frame_id;
     for(int i = 0; i < 4; ++i) imuData_.orientation[i] = msg->orientation[i];
     for(int i = 0; i < 3; ++i) imuData_.angular_velocity[i] = msg->angular_velocity[i];
     for(int i = 0; i < 3; ++i) imuData_.linear_acceleration[i] = msg->linear_acceleration[i];
@@ -133,40 +131,31 @@ void LcmHW::onContacts(const lcm::ReceiveBuffer* rbuf, const std::string& chan,c
     std::lock_guard<std::mutex> lock(mtx_);
 
     for (int i = 0; i < msg->num_contacts; ++i) {
-        const std::string& nm = msg->name[i];
-        auto it = contactNameToIndex_.find(nm);
-        if (it == contactNameToIndex_.end()) continue;
+        const int idx = msg->idx[i];
 
-        const int idx = it->second;
         contactData_[idx].sec = msg->sec[i];
         contactData_[idx].nsec = msg->nsec[i];
+        contactData_[idx].idx = idx;
         contactData_[idx].isContact = msg->isContact[i];
     }
 }
 
+// ---- setup helpers ----
 bool LcmHW::setupJoints() {
     jointNameToIndex_.clear();
-    
-    for (const auto& kv : urdfModel_->joints_) {
-        const std::string& name = kv.first;
-        const auto& joint = kv.second;
 
-        int leg_index = -1;
-        int joint_index = -1;
+    for (int index = 0; index < JOINT_NAMES.size(); ++index) {
+        const std::string& name = JOINT_NAMES[index];
 
-        if (name.find("LF") != std::string::npos)      leg_index = 0;
-        else if (name.find("LH") != std::string::npos) leg_index = 1;
-        else if (name.find("RF") != std::string::npos) leg_index = 2;
-        else if (name.find("RH") != std::string::npos) leg_index = 3;
-        else continue;
+        if(!urdfModel_){
+            ROS_ERROR_STREAM("[LcmHW] URDF model is not loaded");
+            return false;
+        }
 
-        if (name.find("HAA") != std::string::npos)      joint_index = 0;
-        else if (name.find("HFE") != std::string::npos) joint_index = 1;
-        else if (name.find("KFE") != std::string::npos) joint_index = 2;
-        else continue;
-
-        const int index = leg_index * 3 + joint_index;
-        if (index < 0 || index >= 12) continue;
+        if(!urdfModel_->getJoint(name)){
+            ROS_ERROR_STREAM("[LcmHW] Joint " << name << " not found in URDF");
+            return false;
+        }
 
         jointNameToIndex_[name] = index;
 
@@ -178,7 +167,7 @@ bool LcmHW::setupJoints() {
 
         jointStateInterface_.registerHandle(state_handle);
 
-        jointCmd_[index].name = name;
+        jointCmd_[index].idx = index;
         jointCmd_[index].sec = 0;
         jointCmd_[index].nsec = 0;
         jointCmd_[index].posDes_ = 0.0;
@@ -198,7 +187,7 @@ bool LcmHW::setupJoints() {
                 &jointCmd_[index].velDes_,
                 &jointCmd_[index].kp_,
                 &jointCmd_[index].kd_,
-                &jointCmd_[index].ff_));
+                &jointCmd_[index].ff_));        
     }
 
     if (jointNameToIndex_.size() != 12) {
@@ -273,12 +262,11 @@ void LcmHW::write(const ros::Time& time, const ros::Duration& /*period*/) {
 
     legged_hil_lcm::joints_cmd_t cmd_msg;
     
-    cmd_msg.num_joints = 12;
-
+    cmd_msg.num_joints = JOINT_NAMES.size();
 
     cmd_msg.sec.resize(12);
     cmd_msg.nsec.resize(12);
-    cmd_msg.name.resize(12);
+    cmd_msg.idx.resize(12);
     cmd_msg.pos_des.resize(12);
     cmd_msg.vel_des.resize(12);
     cmd_msg.kp.resize(12);
@@ -288,7 +276,7 @@ void LcmHW::write(const ros::Time& time, const ros::Duration& /*period*/) {
     for (int i = 0; i < 12; ++i) {
         cmd_msg.sec[i] = jointData_[i].sec;
         cmd_msg.nsec[i] = jointData_[i].nsec;
-        cmd_msg.name[i] = jointCmd_[i].name;
+        cmd_msg.idx[i] = jointCmd_[i].idx;
         cmd_msg.pos_des[i] = jointCmd_[i].posDes_;
         cmd_msg.vel_des[i] = jointCmd_[i].velDes_;
         cmd_msg.kp[i] = jointCmd_[i].kp_;

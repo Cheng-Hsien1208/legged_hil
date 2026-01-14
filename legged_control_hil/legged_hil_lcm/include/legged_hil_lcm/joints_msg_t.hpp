@@ -10,7 +10,6 @@
 #define __legged_hil_lcm_joints_msg_t_hpp__
 
 #include <vector>
-#include <string>
 
 namespace legged_hil_lcm
 {
@@ -24,7 +23,7 @@ class joints_msg_t
 
         std::vector< int32_t > nsec;
 
-        std::vector< std::string > name;
+        std::vector< int32_t > idx;
 
         std::vector< double > position;
 
@@ -141,9 +140,8 @@ int joints_msg_t::_encodeNoHash(void *buf, int offset, int maxlen) const
         if(tlen < 0) return tlen; else pos += tlen;
     }
 
-    for (int a0 = 0; a0 < this->num_joints; a0++) {
-        char* __cstr = (char*) this->name[a0].c_str();
-        tlen = __string_encode_array(buf, offset + pos, maxlen - pos, &__cstr, 1);
+    if(this->num_joints > 0) {
+        tlen = __int32_t_encode_array(buf, offset + pos, maxlen - pos, &this->idx[0], this->num_joints);
         if(tlen < 0) return tlen; else pos += tlen;
     }
 
@@ -184,14 +182,10 @@ int joints_msg_t::_decodeNoHash(const void *buf, int offset, int maxlen)
         if(tlen < 0) return tlen; else pos += tlen;
     }
 
-    this->name.resize(this->num_joints);
-    for (int a0 = 0; a0 < this->num_joints; a0++) {
-        int32_t __elem_len;
-        tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &__elem_len, 1);
+    if(this->num_joints) {
+        this->idx.resize(this->num_joints);
+        tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &this->idx[0], this->num_joints);
         if(tlen < 0) return tlen; else pos += tlen;
-        if(__elem_len > maxlen - pos) return -1;
-        this->name[a0].assign(((const char*)buf) + offset + pos, __elem_len -  1);
-        pos += __elem_len;
     }
 
     if(this->num_joints) {
@@ -221,9 +215,7 @@ int joints_msg_t::_getEncodedSizeNoHash() const
     enc_size += __int32_t_encoded_array_size(NULL, 1);
     enc_size += __int32_t_encoded_array_size(NULL, this->num_joints);
     enc_size += __int32_t_encoded_array_size(NULL, this->num_joints);
-    for (int a0 = 0; a0 < this->num_joints; a0++) {
-        enc_size += this->name[a0].size() + 4 + 1;
-    }
+    enc_size += __int32_t_encoded_array_size(NULL, this->num_joints);
     enc_size += __double_encoded_array_size(NULL, this->num_joints);
     enc_size += __double_encoded_array_size(NULL, this->num_joints);
     enc_size += __double_encoded_array_size(NULL, this->num_joints);
@@ -232,7 +224,7 @@ int joints_msg_t::_getEncodedSizeNoHash() const
 
 uint64_t joints_msg_t::_computeHash(const __lcm_hash_ptr *)
 {
-    uint64_t hash = 0xc9aaea50ce8878c6LL;
+    uint64_t hash = 0xdf4f4fa90f7102e3LL;
     return (hash<<1) + ((hash>>63)&1);
 }
 

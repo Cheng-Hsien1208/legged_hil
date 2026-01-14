@@ -9,7 +9,6 @@
 #ifndef __legged_hil_lcm_imu_msg_t_hpp__
 #define __legged_hil_lcm_imu_msg_t_hpp__
 
-#include <string>
 
 namespace legged_hil_lcm
 {
@@ -20,8 +19,6 @@ class imu_msg_t
         int32_t    sec;
 
         int32_t    nsec;
-
-        std::string frame_id;
 
         double     orientation[4];
 
@@ -137,10 +134,6 @@ int imu_msg_t::_encodeNoHash(void *buf, int offset, int maxlen) const
     tlen = __int32_t_encode_array(buf, offset + pos, maxlen - pos, &this->nsec, 1);
     if(tlen < 0) return tlen; else pos += tlen;
 
-    char* frame_id_cstr = (char*) this->frame_id.c_str();
-    tlen = __string_encode_array(buf, offset + pos, maxlen - pos, &frame_id_cstr, 1);
-    if(tlen < 0) return tlen; else pos += tlen;
-
     tlen = __double_encode_array(buf, offset + pos, maxlen - pos, &this->orientation[0], 4);
     if(tlen < 0) return tlen; else pos += tlen;
 
@@ -172,13 +165,6 @@ int imu_msg_t::_decodeNoHash(const void *buf, int offset, int maxlen)
     tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &this->nsec, 1);
     if(tlen < 0) return tlen; else pos += tlen;
 
-    int32_t __frame_id_len__;
-    tlen = __int32_t_decode_array(buf, offset + pos, maxlen - pos, &__frame_id_len__, 1);
-    if(tlen < 0) return tlen; else pos += tlen;
-    if(__frame_id_len__ > maxlen - pos) return -1;
-    this->frame_id.assign(((const char*)buf) + offset + pos, __frame_id_len__ - 1);
-    pos += __frame_id_len__;
-
     tlen = __double_decode_array(buf, offset + pos, maxlen - pos, &this->orientation[0], 4);
     if(tlen < 0) return tlen; else pos += tlen;
 
@@ -205,7 +191,6 @@ int imu_msg_t::_getEncodedSizeNoHash() const
     int enc_size = 0;
     enc_size += __int32_t_encoded_array_size(NULL, 1);
     enc_size += __int32_t_encoded_array_size(NULL, 1);
-    enc_size += this->frame_id.size() + 4 + 1;
     enc_size += __double_encoded_array_size(NULL, 4);
     enc_size += __double_encoded_array_size(NULL, 9);
     enc_size += __double_encoded_array_size(NULL, 3);
@@ -217,7 +202,7 @@ int imu_msg_t::_getEncodedSizeNoHash() const
 
 uint64_t imu_msg_t::_computeHash(const __lcm_hash_ptr *)
 {
-    uint64_t hash = 0x4792221183efea21LL;
+    uint64_t hash = 0x9524d476b7526977LL;
     return (hash<<1) + ((hash>>63)&1);
 }
 

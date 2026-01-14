@@ -21,6 +21,13 @@
 #include <atomic>
 
 namespace legged {
+
+const std::vector<std::string> CONTACT_SENSOR_NAMES = {"LF_FOOT", "LH_FOOT", "RF_FOOT", "RH_FOOT"};
+const std::vector<std::string> JOINT_NAMES = {"LF_HAA", "LF_HFE", "LF_KFE",
+                                              "LH_HAA", "LH_HFE", "LH_KFE",
+                                              "RF_HAA", "RF_HFE", "RF_KFE",
+                                              "RH_HAA", "RH_HFE", "RH_KFE"};
+
 struct ImpedanceJointData {
   hardware_interface::JointHandle joint_;
   ros::Time stamp_;
@@ -35,7 +42,6 @@ struct ImpedanceJointCommand {
 struct ImuData {
   gazebo::physics::LinkPtr linkPtr_;
   ros::Time stamp_;
-  std::string frame_id_;
   double ori_[4];            // NOLINT(modernize-avoid-c-arrays)
   double oriCov_[9];         // NOLINT(modernize-avoid-c-arrays)
   double angularVel_[3];     // NOLINT(modernize-avoid-c-arrays)
@@ -62,10 +68,13 @@ class LeggedHilHWSim : public gazebo_ros_control::DefaultRobotHWSim {
 
   gazebo::physics::ContactManager* contactManager_{};
 
+  std::unordered_map<std::string, int> jointNameToIndex_;
   std::list<ImpedanceJointData> impedanceJointDatas_;
   std::list<ImuData> imuDatas_;
-  std::unordered_map<std::string, std::deque<ImpedanceJointCommand> > cmdBuffer_;
+  std::unordered_map<int, std::deque<ImpedanceJointCommand> > cmdBuffer_;
+  
   std::unordered_map<std::string, bool> name2contact_;
+  std::unordered_map<std::string, int> contactNameToIndex_; 
 
   double kp_default_{};
   double kd_default_{};

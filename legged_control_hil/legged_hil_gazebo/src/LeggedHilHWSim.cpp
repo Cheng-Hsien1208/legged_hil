@@ -9,14 +9,16 @@ bool LeggedHilHWSim::initSim(const std::string& robot_namespace, ros::NodeHandle
   model_nh.param("hil/kp_default", kp_default_, kp_default_);
   model_nh.param("hil/kd_default", kd_default_, kp_default_);
 
-  // Joint interface
+  // Impedance joint interface
+  jointNameToIndex_.clear();
+  for (int i = 0; i < JOINT_NAMES.size(); ++i) jointNameToIndex_[JOINT_NAMES[i]] = i;
   registerInterface(&impedanceJointInterface_);
-  std::vector<std::string> joint_names_ = ej_interface_.getNames();
-  for (const auto& name : joint_names_) {
+  for (int idx = 0; idx < JOINT_NAMES.size(); idx ++) {
+    const std::string& name = JOINT_NAMES[idx];
     impedanceJointDatas_.push_back(ImpedanceJointData{.joint_ = ej_interface_.getHandle(name), .kp_ = kp_default_, .kd_ = kd_default_});
     ImpedanceJointData& back = impedanceJointDatas_.back();
     impedanceJointInterface_.registerHandle(ImpedanceJointHandle(back.joint_, 0, 0, 0, 0, &back.posDes_, &back.velDes_, &back.kp_, &back.kd_, &back.ff_));
-    cmdBuffer_.insert(std::make_pair(name.c_str(), std::deque<ImpedanceJointCommand>()));
+    cmdBuffer_.insert(std::make_pair(idx, std::deque<ImpedanceJointCommand>()));
   }
 
   // IMU interface
@@ -57,11 +59,11 @@ bool LeggedHilHWSim::initSim(const std::string& robot_namespace, ros::NodeHandle
   // joints_msg_
   {
     std::lock_guard<std::mutex> lock(mtx_);
-    auto names = ej_interface_.getNames();
+    auto names = JOINT_NAMES;
     joints_msg_.num_joints = static_cast<int32_t>(names.size());
 
-    joints_msg_.name.resize(names.size());
-    for (size_t i=0;i<names.size();++i) joints_msg_.name[i] = names[i];
+    joints_msg_.idx.resize(names.size());
+    for (size_t i=0;i<names.size();++i) joints_msg_.idx[i]=static_cast<int32_t>(i);
     
     joints_msg_.sec.resize(names.size());
     joints_msg_.nsec.resize(names.size());
@@ -75,25 +77,23 @@ bool LeggedHilHWSim::initSim(const std::string& robot_namespace, ros::NodeHandle
     std::lock_guard<std::mutex> lock(mtx_);
     imu_msg_.sec = 0;
     imu_msg_.nsec = 0;
-
-    imu_msg_.frame_id = imuDatas_.front().frame_id_;
   }
 
   // contacts_msg_
   {
     std::lock_guard<std::mutex> lock(mtx_);
 
-    contacts_msg_.num_contacts = static_cast<int32_t>(name2contact_.size());
-    contacts_msg_.sec.resize(name2contact_.size());
-    contacts_msg_.nsec.resize(name2contact_.size());
-    contacts_msg_.name.resize(name2contact_.size());
-    contacts_msg_.isContact.resize(name2contact_.size());
-    int idx=0;
-    for (auto& kv : name2contact_) {
-      contacts_msg_.name[idx] = kv.first;
-      contacts_msg_.isContact[idx] = kv.second;
-      idx++;
+    contactNameToIndex_.clear();
+    for (size_t i = 0; i < CONTACT_SENSOR_NAMES.size(); ++i) {
+      const auto& nm = CONTACT_SENSOR_NAMES[i];
+      contactNameToIndex_[nm] = static_cast<int>(i);
     }
+
+    contacts_msg_.num_contacts = static_cast<int32_t>(CONTACT_SENSOR_NAMES.size());
+    contacts_msg_.sec.resize(CONTACT_SENSOR_NAMES.size());
+    contacts_msg_.nsec.resize(CONTACT_SENSOR_NAMES.size());
+    contacts_msg_.idx.resize(CONTACT_SENSOR_NAMES.size());
+    contacts_msg_.isContact.resize(CONTACT_SENSOR_NAMES.size());
   }
 
   th_running_.store(true);
@@ -147,17 +147,18 @@ void LeggedHilHWSim::lcmSpin() {
 void LeggedHilHWSim::onJointCmd(const lcm::ReceiveBuffer* rbuf, const std::string& chan, const legged_hil_lcm::joints_cmd_t* msg) {
   const int num_joints = msg->num_joints;
 
-  if (num_joints != static_cast<int>(joint_names_.size())) {
+  if (num_joints != static_cast<int>(JOINT_NAMES.size())) {
     ROS_WARN("Received joints_cmd_t with different number of joints: expected %zu, got %d", joint_names_.size(), num_joints);
     return;
   }
 
   std::lock_guard<std::mutex> lock(mtx_);
 
-  for (int i = 0; i < num_joints; i++) {
-    const std::string& name = msg->name[i];
-    if (cmdBuffer_.find(name) == cmdBuffer_.end()) {
-      ROS_WARN("Received joints_cmd_t with unknown joint name: %s", name.c_str());
+  for (int i = 0; i < JOINT_NAMES.size(); i++) {
+    const int idx = msg->idx[i];
+
+    if (cmdBuffer_.find(idx) == cmdBuffer_.end()) {
+      ROS_WARN("Received joints_cmd_t with unknown joint idx: %d", idx);
       continue;
     }
 
@@ -169,8 +170,8 @@ void LeggedHilHWSim::onJointCmd(const lcm::ReceiveBuffer* rbuf, const std::strin
     cmd.kp_ = msg->kp[i];
     cmd.kd_ = msg->kd[i];
     cmd.ff_ = msg->ff[i];
-    cmdBuffer_[name].push_front(cmd);
-  }  
+    cmdBuffer_[idx].push_front(cmd);
+  }
 }
 
 void LeggedHilHWSim::readSim(ros::Time time, ros::Duration period) {
@@ -248,12 +249,12 @@ void LeggedHilHWSim::readSim(ros::Time time, ros::Duration period) {
   std::lock_guard<std::mutex> lock(mtx_);
 
   // joints_msg_
-  for (int i = 0; i < n_dof_; i++) {
-    joints_msg_.sec[i] = time.sec;
-    joints_msg_.nsec[i] = time.nsec;
-    joints_msg_.position[i] = joint_position_[i];
-    joints_msg_.velocity[i] = joint_velocity_[i];
-    joints_msg_.effort[i]   = joint_effort_[i];
+  for (int idx = 0; idx < JOINT_NAMES.size(); idx ++) {
+    joints_msg_.sec[idx] = time.sec;
+    joints_msg_.nsec[idx] = time.nsec;
+    joints_msg_.position[idx] = joint_position_[idx];
+    joints_msg_.velocity[idx] = joint_velocity_[idx];
+    joints_msg_.effort[idx]   = joint_effort_[idx];
   }
 
   // imu_msg_
@@ -267,8 +268,10 @@ void LeggedHilHWSim::readSim(ros::Time time, ros::Duration period) {
   for (int k = 0; k < 9; k++) imu_msg_.linear_acceleration_covariance[k] = imuDatas_.front().linearAccCov_[k];
 
   // contacts_msg_
-  for (int i = 0; i < contacts_msg_.num_contacts; i++) {
-    const auto& nm = contacts_msg_.name[i];
+  for (int i = 0; i < CONTACT_SENSOR_NAMES.size(); i++) {
+    const auto& nm = CONTACT_SENSOR_NAMES[i];
+    const int idx = contactNameToIndex_[nm];
+    contacts_msg_.idx[i] = idx;
     contacts_msg_.sec[i] = time.sec;
     contacts_msg_.nsec[i] = time.nsec;
     contacts_msg_.isContact[i] = name2contact_[nm];
@@ -277,7 +280,7 @@ void LeggedHilHWSim::readSim(ros::Time time, ros::Duration period) {
 
 void LeggedHilHWSim::writeSim(ros::Time time, ros::Duration period) {
   for (auto joint : impedanceJointDatas_) {
-    auto& buffer = cmdBuffer_.find(joint.joint_.getName())->second;
+    auto& buffer = cmdBuffer_.find(jointNameToIndex_[joint.joint_.getName()])->second;
     if (time == ros::Time(period.toSec())) {  // Simulation reset
       buffer.clear();
     }
@@ -339,7 +342,6 @@ void LeggedHilHWSim::parseImu(XmlRpc::XmlRpcValue& imuDatas, const gazebo::physi
     imuDatas_.push_back((ImuData{
         .linkPtr_ = linkPtr,
         .stamp_ = ros::Time(0),
-        .frame_id_ = frameId,
         .ori_ = {0., 0., 0., 0.},
         .oriCov_ = {static_cast<double>(oriCov[0]), 0., 0., 0., static_cast<double>(oriCov[1]), 0., 0., 0., static_cast<double>(oriCov[2])},
         .angularVel_ = {0., 0., 0.},

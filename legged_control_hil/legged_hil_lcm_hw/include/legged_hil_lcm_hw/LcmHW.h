@@ -16,26 +16,29 @@
 
 namespace legged {
 
-const std::vector<std::string> CONTACT_SENSOR_NAMES = {"RF_FOOT", "LF_FOOT", "RH_FOOT", "LH_FOOT"};
+const std::vector<std::string> CONTACT_SENSOR_NAMES = {"LF_FOOT", "LH_FOOT", "RF_FOOT", "RH_FOOT"};
+const std::vector<std::string> JOINT_NAMES = {"LF_HAA", "LF_HFE", "LF_KFE",
+                                              "LH_HAA", "LH_HFE", "LH_KFE",
+                                              "RF_HAA", "RF_HFE", "RF_KFE",
+                                              "RH_HAA", "RH_HFE", "RH_KFE"};
 
 struct LcmJointData {
     int sec;
     int nsec;
-    std::string name;
+    int idx;
     double pos_, vel_, tau_;                 // state
 };
 
 struct LcmJointCmd {
     int sec;
     int nsec;
-    std::string name;
+    int idx;
     double posDes_, velDes_, kp_, kd_, ff_;  // command
 };
 
 struct LcmImuData {
     int sec;
     int nsec;
-    std::string frame_id;
     double orientation[4];
     double orientation_covariance[9];
     double angular_velocity[3];
@@ -47,7 +50,7 @@ struct LcmImuData {
 struct LcmContactData {
     int sec;
     int nsec;
-    std::string name;
+    int idx;
     bool isContact;
 };
 

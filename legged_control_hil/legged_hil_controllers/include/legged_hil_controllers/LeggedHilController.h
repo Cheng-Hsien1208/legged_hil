@@ -17,6 +17,12 @@
 #include "legged_controllers/SafetyChecker.h"
 #include "legged_controllers/visualization/LeggedSelfCollisionVisualization.h"
 
+#include <realtime_tools/realtime_publisher.h>
+#include <std_msgs/Header.h>
+#include <std_msgs/Float64.h>
+#include <std_msgs/Bool.h>
+#include <legged_hil_controllers/LeggedHilPhasePred.h>
+
 namespace legged {
 using namespace ocs2;
 using namespace legged_robot;
@@ -66,12 +72,21 @@ class LeggedHilController : public controller_interface::MultiInterfaceControlle
   std::shared_ptr<LeggedSelfCollisionVisualization> selfCollisionVisualization_;
   ros::Publisher observationPublisher_;
 
+  // CPU Affinity
   std::string mpcCpuList_;
   bool parseCpuList(const std::string& cpuListStr, cpu_set_t& cpuset);
   bool setThreadAffinity(std::thread& th, const cpu_set_t& cpuset);
 
+  // Gains
   double kp_{0.0};
   double kd_{0.0};
+
+  // Legged Phase Prediction
+  std::shared_ptr<LeggedHilPhasePred> LeggedHilPhasePred_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footForceNormPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Bool>>> footPhaseEstPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Bool>>> footPhaseGtPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footPhasePriorPublishers_;
 
  private:
   std::thread mpcThread_;

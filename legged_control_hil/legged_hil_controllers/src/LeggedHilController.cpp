@@ -75,6 +75,23 @@ bool LeggedHilController::init(hardware_interface::RobotHW* robot_hw, ros::NodeH
   // Safety Checker
   safetyChecker_ = std::make_shared<SafetyChecker>(leggedInterface_->getCentroidalModelInfo());
 
+  // Legged Phase Prediction
+  LeggedHilPhasePred_ = std::make_shared<LeggedHilPhasePred>(
+      leggedInterface_->getPinocchioInterface(), impedanceJointHandles_,
+      leggedInterface_->modelSettings().jointNames, leggedInterface_->modelSettings().contactNames3DoF);
+
+  footForceNormPublishers_.resize(4);
+  footPhaseGtPublishers_.resize(4);
+  footPhaseEstPublishers_.resize(4);
+  footPhasePriorPublishers_.resize(4);
+  std::vector<std::string> legNames = leggedInterface_->modelSettings().contactNames3DoF;
+  for (size_t i = 0; i < 4; ++i) {
+    footForceNormPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(nh, "/legged_robot/estimated_foot_force_norm/" + legNames[i], 1);
+    footPhaseGtPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Bool>>(nh, "/legged_robot/foot_phase_gt/" + legNames[i], 1);
+    footPhaseEstPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Bool>>(nh, "/legged_robot/foot_phase_est/" + legNames[i], 1);
+    footPhasePriorPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(nh, "/legged_robot/foot_phase_prior/" + legNames[i], 1);
+  }
+
   return true;
 }
 
@@ -97,10 +114,15 @@ void LeggedHilController::starting(const ros::Time& time) {
   }
   ROS_INFO_STREAM("Initial policy has been received.");
 
+  // Start Legged Phase Predictor
+  LeggedHilPhasePred_->initialize();
+  ROS_INFO_STREAM("LeggedHilPhasePred initialized.");
+
   mpcRunning_ = true;
 }
 
 void LeggedHilController::update(const ros::Time& time, const ros::Duration& period) {
+  wbcTimer_.startTimer();
   // State Estimate
   updateStateEstimation(time, period);
 
@@ -118,9 +140,7 @@ void LeggedHilController::update(const ros::Time& time, const ros::Duration& per
   // Whole body control
   currentObservation_.input = optimizedInput;
 
-  wbcTimer_.startTimer();
   vector_t x = wbc_->update(optimizedState, optimizedInput, measuredRbdState_, plannedMode, period.toSec());
-  wbcTimer_.endTimer();
 
   vector_t torque = x.tail(12);
 
@@ -152,13 +172,15 @@ void LeggedHilController::update(const ros::Time& time, const ros::Duration& per
 
   // Publish the observation. Only needed for the command interface
   observationPublisher_.publish(ros_msg_conversions::createObservationMsg(currentObservation_));
+
+  wbcTimer_.endTimer();
 }
 
 void LeggedHilController::updateStateEstimation(const ros::Time& time, const ros::Duration& period) {
   vector_t jointPos(impedanceJointHandles_.size()), jointVel(impedanceJointHandles_.size());
   contact_flag_t contacts;
   Eigen::Quaternion<scalar_t> quat;
-  contact_flag_t contactFlag;
+  contact_flag_t contactFlagGt, contactFlagEst;
   vector3_t angularVel, linearAccel;
   matrix3_t orientationCovariance, angularVelCovariance, linearAccelCovariance;
 
@@ -166,9 +188,35 @@ void LeggedHilController::updateStateEstimation(const ros::Time& time, const ros
     jointPos(i) = impedanceJointHandles_[i].getPosition();
     jointVel(i) = impedanceJointHandles_[i].getVelocity();
   }
+
+  // Legged Phase Prediction
+  LeggedHilPhasePred_->update();
+  
+  // Get contact sensor data
   for (size_t i = 0; i < contacts.size(); ++i) {
-    contactFlag[i] = contactHandles_[i].isContact();
+    contactFlagGt[i] = contactHandles_[i].isContact();
+    contactFlagEst[i] = LeggedHilPhasePred_->getLegPhase(i);
+    if (footPhaseGtPublishers_[i]->trylock()) {
+      footPhaseGtPublishers_[i]->msg_.data = contactFlagGt[i];
+      footPhaseGtPublishers_[i]->unlockAndPublish();
+    }
+
+    if (footPhaseEstPublishers_[i]->trylock()) {
+      footPhaseEstPublishers_[i]->msg_.data = contactFlagEst[i];
+      footPhaseEstPublishers_[i]->unlockAndPublish();
+    }
+
+    if (footForceNormPublishers_[i]->trylock()) {
+      footForceNormPublishers_[i]->msg_.data = LeggedHilPhasePred_->getContactForceNorm(i);
+      footForceNormPublishers_[i]->unlockAndPublish();
+    }
+
+    if (footPhasePriorPublishers_[i]->trylock()) {
+      footPhasePriorPublishers_[i]->msg_.data = LeggedHilPhasePred_->getSwingProb(i);
+      footPhasePriorPublishers_[i]->unlockAndPublish();
+    }
   }
+
   for (size_t i = 0; i < 4; ++i) {
     quat.coeffs()(i) = imuSensorHandle_.getOrientation()[i];
   }
@@ -183,7 +231,7 @@ void LeggedHilController::updateStateEstimation(const ros::Time& time, const ros
   }
 
   stateEstimate_->updateJointStates(jointPos, jointVel);
-  stateEstimate_->updateContact(contactFlag);
+  stateEstimate_->updateContact(contactFlagEst);
   stateEstimate_->updateImu(quat, angularVel, linearAccel, orientationCovariance, angularVelCovariance, linearAccelCovariance);
   measuredRbdState_ = stateEstimate_->update(time, period);
   currentObservation_.time += period.toSec();

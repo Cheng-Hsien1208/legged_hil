@@ -59,7 +59,14 @@ link_directories(
 ## Declare a cpp library
 add_library(${PROJECT_NAME}
         src/LeggedHilController.cpp
+        src/LeggedHilPhasePred.cpp
         )
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  BOOST_MPL_LIMIT_LIST_SIZE=50
+  BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS
+  PINOCCHIO_BOOST_MPL_LIMIT_CONTAINER_SIZE=50
+)
 
 target_link_libraries(${PROJECT_NAME}
         ${catkin_LIBRARIES}

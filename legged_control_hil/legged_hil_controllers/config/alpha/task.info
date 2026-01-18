@@ -28,7 +28,7 @@ sqp
 {
   nThreads                              6
   dt                                    0.02
-  sqpIteration                          3
+  sqpIteration                          1
   deltaTol                              1e-4
   g_max                                 1e-2
   g_min                                 1e-6
@@ -36,12 +36,12 @@ sqp
   inequalityConstraintDelta             5.0
   projectStateInputEqualityConstraints  true
   printSolverStatistics                 true
-  printSolverStatus                     false
+  printSolverStatus                     true
   printLinesearch                       false
   useFeedbackPolicy                     false
   integratorType                        RK2
   threadPriority                        50
-  solverCpuList                         2,4,6,3,5,7
+  solverCpuList                         16,17,18,19,20,21
 }
 
 ; Rollout settings
@@ -49,7 +49,7 @@ rollout
 {
   AbsTolODE                       1e-5
   RelTolODE                       1e-3
-  timeStep                        0.015
+  timeStep                        0.02
   integratorType                  ODE45
   maxNumStepsPerSecond            10000
   checkNumericalStability         false
@@ -63,7 +63,7 @@ mpc
 
   debugPrint                      false
 
-  mpcDesiredFrequency             50  ; [Hz]
+  mpcDesiredFrequency             100  ; [Hz]
   mrtDesiredFrequency             1000 ; [Hz] Useless
 }
 
@@ -108,7 +108,7 @@ Q
   ;; Normalized Centroidal Momentum: [linear, angular] ;;
   (0,0)   30.0     ; vcom_x
   (1,1)   15.0     ; vcom_y
-  (2,2)   50.0    ; vcom_z
+  (2,2)   30.0    ; vcom_z
   (3,3)   10.0     ; L_x / robotMass
   (4,4)   30.0     ; L_y / robotMass
   (5,5)   30.0     ; L_z / robotMass
@@ -122,16 +122,16 @@ Q
   (11,11) 300.0    ; theta_base_x
 
   ;; Leg Joint Positions: [LF, LH, RF, RH] ;;
-  (12,12) 50.0     ; LF_HAA
+  (12,12) 20.0     ; LF_HAA
   (13,13) 20.0     ; LF_HFE
   (14,14) 20.0     ; LF_KFE
-  (15,15) 50.0     ; LH_HAA
+  (15,15) 20.0     ; LH_HAA
   (16,16) 20.0     ; LH_HFE
   (17,17) 20.0     ; LH_KFE
-  (18,18) 50.0     ; RF_HAA
+  (18,18) 20.0     ; RF_HAA
   (19,19) 20.0     ; RF_HFE
   (20,20) 20.0     ; RF_KFE
-  (21,21) 50.0     ; RH_HAA
+  (21,21) 20.0     ; RH_HAA
   (22,22) 20.0     ; RH_HFE
   (23,23) 20.0     ; RH_KFE
 }

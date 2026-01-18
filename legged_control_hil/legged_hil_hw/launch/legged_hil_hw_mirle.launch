@@ -1,6 +1,6 @@
 <launch>
     <arg name="robot_type" default="alpha"/>
-    <arg name="ros_cpu_list" default="16"/>
+    <arg name="ros_cpu_list" default="0,1"/>
     <arg name="ros_nice" default="-20"/>
 
     <param name="legged_robot_description" command="$(find xacro)/xacro $(find legged_hil_mirle_description)/urdf/robot.xacro

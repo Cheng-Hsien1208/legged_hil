@@ -4,9 +4,9 @@ legged_hil_hw:
   kp: 50.0
   kd: 40.0
 
-  lcm_cpu_list: "17"
-  wbc_cpu_list: "0" 
-  mpc_cpu_list: "0"
+  lcm_cpu_list: ""
+  wbc_cpu_list: "" 
+  mpc_cpu_list: ""
   lcm_thread_priority: 80
   wbc_thread_priority: 95
   mpc_thread_priority: 50

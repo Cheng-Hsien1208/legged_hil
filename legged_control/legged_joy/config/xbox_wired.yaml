@@ -29,7 +29,7 @@ max_yaw: 1.0
 speed_mul_init: 1.0
 speed_mul_step: 0.1
 speed_mul_min: 0.1
-speed_mul_max: 2.0
+speed_mul_max: 5.0
 
 # ===============================
 #  Joystick Mapping (Xbox_wired)

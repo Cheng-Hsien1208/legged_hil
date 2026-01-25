@@ -28,7 +28,7 @@ sqp
 {
   nThreads                              6
   dt                                    0.02
-  sqpIteration                          1
+  sqpIteration                          3
   deltaTol                              1e-4
   g_max                                 1e-2
   g_min                                 1e-6
@@ -36,7 +36,7 @@ sqp
   inequalityConstraintDelta             5.0
   projectStateInputEqualityConstraints  true
   printSolverStatistics                 true
-  printSolverStatus                     true
+  printSolverStatus                     false
   printLinesearch                       false
   useFeedbackPolicy                     false
   integratorType                        RK2
@@ -63,7 +63,7 @@ mpc
 
   debugPrint                      false
 
-  mpcDesiredFrequency             100  ; [Hz]
+  mpcDesiredFrequency             25  ; [Hz]
   mrtDesiredFrequency             1000 ; [Hz] Useless
 }
 
@@ -80,24 +80,24 @@ initialState
    ;; Base Pose: [position, orientation] ;;
    (6,0)  0.00     ; p_base_x
    (7,0)  0.00     ; p_base_y
-   (8,0)  0.45     ; p_base_z
+   (8,0)  0.40     ; p_base_z
    (9,0)  0.00     ; theta_base_z
    (10,0) 0.00     ; theta_base_y
    (11,0) 0.00     ; theta_base_x
 
    ;; Leg Joint Positions: [LF, LH, RF, RH] ;;
    (12,0)  0.00   ; LF_HAA
-   (13,0)  0.75   ; LF_HFE
-   (14,0) -1.56   ; LF_KFE
+   (13,0)  0.70   ; LF_HFE
+   (14,0) -1.70   ; LF_KFE
    (15,0)  0.00  ; LH_HAA
-   (16,0)  0.75   ; LH_HFE
-   (17,0) -1.56   ; LH_KFE
+   (16,0)  0.70   ; LH_HFE
+   (17,0) -1.70   ; LH_KFE
    (18,0)  0.00   ; RF_HAA
-   (19,0)  0.75   ; RF_HFE
-   (20,0) -1.56   ; RF_KFE
+   (19,0)  0.70   ; RF_HFE
+   (20,0) -1.70   ; RF_KFE
    (21,0)  0.00   ; RH_HAA
-   (22,0)  0.75   ; RH_HFE
-   (23,0) -1.56   ; RH_KFE
+   (22,0)  0.70   ; RH_HFE
+   (23,0) -1.70   ; RH_KFE
 }
 
 ; standard state weight matrix
@@ -116,22 +116,22 @@ Q
   ;; Base Pose: [position, orientation] ;;
   (6,6)   1000.0   ; p_base_x
   (7,7)   1000.0   ; p_base_y
-  (8,8)   1000.0   ; p_base_z
+  (8,8)   500.0   ; p_base_z
   (9,9)   100.0    ; theta_base_z
   (10,10) 300.0    ; theta_base_y
   (11,11) 300.0    ; theta_base_x
 
   ;; Leg Joint Positions: [LF, LH, RF, RH] ;;
-  (12,12) 20.0     ; LF_HAA
+  (12,12) 50.0     ; LF_HAA
   (13,13) 20.0     ; LF_HFE
   (14,14) 20.0     ; LF_KFE
-  (15,15) 20.0     ; LH_HAA
+  (15,15) 50.0     ; LH_HAA
   (16,16) 20.0     ; LH_HFE
   (17,17) 20.0     ; LH_KFE
-  (18,18) 20.0     ; RF_HAA
+  (18,18) 50.0     ; RF_HAA
   (19,19) 20.0     ; RF_HFE
   (20,20) 20.0     ; RF_KFE
-  (21,21) 20.0     ; RH_HAA
+  (21,21) 50.0     ; RH_HAA
   (22,22) 20.0     ; RH_HFE
   (23,23) 20.0     ; RH_KFE
 }
@@ -216,7 +216,7 @@ torqueLimitsTask
 
 frictionConeTask
 {
-  frictionCoefficient    0.3
+  frictionCoefficient    0.5
 }
 
 swingLegTask

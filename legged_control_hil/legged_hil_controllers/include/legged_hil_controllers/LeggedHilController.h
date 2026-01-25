@@ -23,6 +23,11 @@
 #include <std_msgs/Bool.h>
 #include <legged_hil_controllers/LeggedHilPhasePred.h>
 
+#include <legged_hil_controllers/LeggedFootObs.h>
+#include <geometry_msgs/Vector3Stamped.h>
+
+#include <legged_hil_controllers/LeggedFootContactEst.h>
+
 namespace legged {
 using namespace ocs2;
 using namespace legged_robot;
@@ -81,12 +86,36 @@ class LeggedHilController : public controller_interface::MultiInterfaceControlle
   double kp_{0.0};
   double kd_{0.0};
 
+  // Contact 
+  contact_flag_t contactFlagGt = {false, false, false, false};
+  contact_flag_t contactFlagEstOld = {false, false, false, false};
+  contact_flag_t contactFlagEstNew = {false, false, false, false};
+  int count = 0;
+
+  // Contact flags Gt
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Bool>>> footPhaseGtPublishers_;
+
   // Legged Phase Prediction
   std::shared_ptr<LeggedHilPhasePred> LeggedHilPhasePred_;
-  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footForceNormPublishers_;
   std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Bool>>> footPhaseEstPublishers_;
-  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Bool>>> footPhaseGtPublishers_;
-  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footPhasePriorPublishers_;
+
+
+  // Endeffector interfaces
+  std::shared_ptr<LeggedFootObs> LeggedFootObs_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::Vector3Stamped>>> footPosPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::Vector3Stamped>>> footVelPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::Vector3Stamped>>> footForcePublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footFratioPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footFratioDeltaPublishers_;
+
+  // Foot Contact Estimation
+  std::shared_ptr<LeggedFootContactEst> footContactEst_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Bool>>> footContactEstPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footContactLogOddsPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footContactCurrentLogisticPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footContactProbStancePublishers_;
+
+
 
  private:
   std::thread mpcThread_;

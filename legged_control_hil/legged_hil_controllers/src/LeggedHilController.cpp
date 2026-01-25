@@ -80,16 +80,77 @@ bool LeggedHilController::init(hardware_interface::RobotHW* robot_hw, ros::NodeH
       leggedInterface_->getPinocchioInterface(), impedanceJointHandles_,
       leggedInterface_->modelSettings().jointNames, leggedInterface_->modelSettings().contactNames3DoF);
 
-  footForceNormPublishers_.resize(4);
   footPhaseGtPublishers_.resize(4);
   footPhaseEstPublishers_.resize(4);
-  footPhasePriorPublishers_.resize(4);
   std::vector<std::string> legNames = leggedInterface_->modelSettings().contactNames3DoF;
   for (size_t i = 0; i < 4; ++i) {
-    footForceNormPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(nh, "/legged_robot/estimated_foot_force_norm/" + legNames[i], 1);
     footPhaseGtPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Bool>>(nh, "/legged_robot/foot_phase_gt/" + legNames[i], 1);
     footPhaseEstPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Bool>>(nh, "/legged_robot/foot_phase_est/" + legNames[i], 1);
-    footPhasePriorPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(nh, "/legged_robot/foot_phase_prior/" + legNames[i], 1);
+  }
+
+  // Eedeffector interfaces
+  LeggedFootObs_ = std::make_shared<LeggedFootObs>(urdfFile,
+                                                     leggedInterface_->modelSettings().jointNames,
+                                                     leggedInterface_->getCentroidalModelInfo(),
+                                                     leggedInterface_->modelSettings().contactNames3DoF,
+                                                     "");
+
+  footPosPublishers_.resize(4);
+  footVelPublishers_.resize(4);
+  footForcePublishers_.resize(4);
+  footFratioPublishers_.resize(4);
+  footFratioDeltaPublishers_.resize(4);
+
+  for (size_t i = 0; i < 4; ++i) {
+    footPosPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<geometry_msgs::Vector3Stamped>>(
+        nh, "/legged_robot/foot_obs/foot_position_W/" + legNames[i], 1);
+
+    footVelPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<geometry_msgs::Vector3Stamped>>(
+        nh, "/legged_robot/foot_obs/foot_velocity_W/" + legNames[i], 1);
+
+    footForcePublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<geometry_msgs::Vector3Stamped>>(
+        nh, "/legged_robot/foot_obs/foot_force_W/" + legNames[i], 1);
+
+    footFratioPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(
+        nh, "/legged_robot/foot_obs/foot_F_ratio/" + legNames[i], 1);
+    
+    footFratioDeltaPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(
+        nh, "/legged_robot/foot_obs/foot_F_ratio_delta/" + legNames[i], 1);
+  }
+
+  // Foot Contact Estimation
+  LeggedFootContactEst::LogisticParams logisticParams;
+  logisticParams.mu = {0.24998293573491237, 0.02435780812149187, -0.012396106084883337};
+  logisticParams.sigma = {0.21544671048667338, 0.05257167677599799, 0.5992584679301705};
+  logisticParams.w =  {3.2181342486259585, -1.1470960111140018, 0.14000015890435785};
+  logisticParams.b = -0.4109456112539159;
+  logisticParams.priorLogOdds = -0.2820386688872121;
+
+  LeggedFootContactEst::FilterParams filterParams;
+  filterParams.alpha = 0.001;
+  filterParams.beta = 0.01;
+  filterParams.L_min = -30.0;
+  filterParams.L_max = 15.0;
+  filterParams.L_enter = 10.0;
+  filterParams.L_exit = -1.0;
+  filterParams.N_enter = 10;
+  filterParams.N_exit = 3;
+
+  footContactEst_ =  std::make_shared<LeggedFootContactEst>(LeggedFootObs_, logisticParams, filterParams);
+
+  footContactEstPublishers_.resize(4);
+  footContactLogOddsPublishers_.resize(4);
+  footContactCurrentLogisticPublishers_.resize(4);
+  footContactProbStancePublishers_.resize(4);
+  for (size_t i = 0; i < 4; ++i) {
+    footContactEstPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Bool>>(
+        nh, "/legged_robot/foot_contact_est/foot_contact_est/" + legNames[i], 1);
+    footContactLogOddsPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(
+        nh, "/legged_robot/foot_contact_est/foot_contact_log_odds/" + legNames[i], 1);
+    footContactCurrentLogisticPublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(
+        nh, "/legged_robot/foot_contact_est/foot_contact_current_logistic/" + legNames[i], 1);
+    footContactProbStancePublishers_[i] = std::make_shared<realtime_tools::RealtimePublisher<std_msgs::Float64>>(
+        nh, "/legged_robot/foot_contact_est/foot_contact_prob_stance/" + legNames[i], 1);
   }
 
   return true;
@@ -117,6 +178,10 @@ void LeggedHilController::starting(const ros::Time& time) {
   // Start Legged Phase Predictor
   LeggedHilPhasePred_->initialize();
   ROS_INFO_STREAM("LeggedHilPhasePred initialized.");
+
+  // Start Foot Contact Estimator
+  footContactEst_->reset(0.0);
+  ROS_INFO_STREAM("LeggedFootContactEst initialized.");
 
   mpcRunning_ = true;
 }
@@ -177,44 +242,16 @@ void LeggedHilController::update(const ros::Time& time, const ros::Duration& per
 }
 
 void LeggedHilController::updateStateEstimation(const ros::Time& time, const ros::Duration& period) {
-  vector_t jointPos(impedanceJointHandles_.size()), jointVel(impedanceJointHandles_.size());
-  contact_flag_t contacts;
+  vector_t jointPos(impedanceJointHandles_.size()), jointVel(impedanceJointHandles_.size()), jointEffort(impedanceJointHandles_.size());
+  int contactsSize = leggedInterface_->modelSettings().contactNames3DoF.size();
   Eigen::Quaternion<scalar_t> quat;
-  contact_flag_t contactFlagGt, contactFlagEst;
   vector3_t angularVel, linearAccel;
   matrix3_t orientationCovariance, angularVelCovariance, linearAccelCovariance;
 
   for (size_t i = 0; i < impedanceJointHandles_.size(); ++i) {
     jointPos(i) = impedanceJointHandles_[i].getPosition();
     jointVel(i) = impedanceJointHandles_[i].getVelocity();
-  }
-
-  // Legged Phase Prediction
-  LeggedHilPhasePred_->update();
-  
-  // Get contact sensor data
-  for (size_t i = 0; i < contacts.size(); ++i) {
-    contactFlagGt[i] = contactHandles_[i].isContact();
-    contactFlagEst[i] = LeggedHilPhasePred_->getLegPhase(i);
-    if (footPhaseGtPublishers_[i]->trylock()) {
-      footPhaseGtPublishers_[i]->msg_.data = contactFlagGt[i];
-      footPhaseGtPublishers_[i]->unlockAndPublish();
-    }
-
-    if (footPhaseEstPublishers_[i]->trylock()) {
-      footPhaseEstPublishers_[i]->msg_.data = contactFlagEst[i];
-      footPhaseEstPublishers_[i]->unlockAndPublish();
-    }
-
-    if (footForceNormPublishers_[i]->trylock()) {
-      footForceNormPublishers_[i]->msg_.data = LeggedHilPhasePred_->getContactForceNorm(i);
-      footForceNormPublishers_[i]->unlockAndPublish();
-    }
-
-    if (footPhasePriorPublishers_[i]->trylock()) {
-      footPhasePriorPublishers_[i]->msg_.data = LeggedHilPhasePred_->getSwingProb(i);
-      footPhasePriorPublishers_[i]->unlockAndPublish();
-    }
+    jointEffort(i) = impedanceJointHandles_[i].getEffort();
   }
 
   for (size_t i = 0; i < 4; ++i) {
@@ -229,9 +266,13 @@ void LeggedHilController::updateStateEstimation(const ros::Time& time, const ros
     angularVelCovariance(i) = imuSensorHandle_.getAngularVelocityCovariance()[i];
     linearAccelCovariance(i) = imuSensorHandle_.getLinearAccelerationCovariance()[i];
   }
+  for (size_t i = 0; i < contactHandles_.size(); ++i) {
+    contactFlagGt[i] = contactHandles_[i].isContact();
+  }
 
   stateEstimate_->updateJointStates(jointPos, jointVel);
-  stateEstimate_->updateContact(contactFlagEst);
+  stateEstimate_->updateContact(contactFlagEstNew);
+  // stateEstimate_->updateContact(contactFlagEstOld);
   stateEstimate_->updateImu(quat, angularVel, linearAccel, orientationCovariance, angularVelCovariance, linearAccelCovariance);
   measuredRbdState_ = stateEstimate_->update(time, period);
   currentObservation_.time += period.toSec();
@@ -239,6 +280,127 @@ void LeggedHilController::updateStateEstimation(const ros::Time& time, const ros
   currentObservation_.state = rbdConversions_->computeCentroidalStateFromRbdModel(measuredRbdState_);
   currentObservation_.state(9) = yawLast + angles::shortest_angular_distance(yawLast, currentObservation_.state(9));
   currentObservation_.mode = stateEstimate_->getMode();
+
+  // Legged Phase Prediction
+  LeggedHilPhasePred_->update();
+  
+  // Get contact sensor data
+  for (size_t i = 0; i < contactsSize; ++i) {
+    contactFlagEstOld[i] = LeggedHilPhasePred_->getLegPhase(i);
+    if (footPhaseGtPublishers_[i]->trylock()) {
+      footPhaseGtPublishers_[i]->msg_.data = contactFlagGt[i];
+      footPhaseGtPublishers_[i]->unlockAndPublish();
+    }
+
+    if (footPhaseEstPublishers_[i]->trylock()) {
+      footPhaseEstPublishers_[i]->msg_.data = contactFlagEstOld[i];
+      footPhaseEstPublishers_[i]->unlockAndPublish();
+    }
+  }
+
+  // foot observations
+  double timeSec = time.toSec();
+  std::array<int, 4> contactGt_;
+  for (size_t i = 0; i < contactsSize; ++i) {
+    contactGt_[i] = contactFlagGt[i] ? 1 : 0;
+  }
+  LeggedFootObs_->updateTime(timeSec);
+  LeggedFootObs_->updateContactGt(contactGt_);
+  LeggedFootObs_->updateJointStates(jointPos, jointVel, jointEffort);
+  LeggedFootObs_->updateMeasuredRbdState(measuredRbdState_);
+  LeggedFootObs_->update();
+  const auto& obsFeet = LeggedFootObs_->getFootStates();
+
+  const auto& legNames = leggedInterface_->modelSettings().contactNames3DoF;
+
+  for (size_t i = 0; i < legNames.size(); ++i) {
+    const auto& name = legNames[i];
+    auto it = obsFeet.find(name);
+    if (it == obsFeet.end()) continue;
+
+    const auto& footState = it->second;
+
+    // --- publish position ---
+    if (footPosPublishers_[i] && footPosPublishers_[i]->trylock()) {
+      auto& msg = footPosPublishers_[i]->msg_;
+      msg.header.stamp = time;
+      msg.header.frame_id = "world";  // 或 "odom" 依你的世界座標定義
+      msg.vector.x = footState.position_W.x();
+      msg.vector.y = footState.position_W.y();
+      msg.vector.z = footState.position_W.z();
+      footPosPublishers_[i]->unlockAndPublish();
+    }
+
+    // --- publish velocity ---
+    if (footVelPublishers_[i] && footVelPublishers_[i]->trylock()) {
+      auto& msg = footVelPublishers_[i]->msg_;
+      msg.header.stamp = time;
+      msg.header.frame_id = "world";
+      msg.vector.x = footState.velocity_W.x();
+      msg.vector.y = footState.velocity_W.y();
+      msg.vector.z = footState.velocity_W.z();
+      footVelPublishers_[i]->unlockAndPublish();
+    }
+
+    // --- publish contact force ---
+    if (footForcePublishers_[i] && footForcePublishers_[i]->trylock()) {
+      auto& msg = footForcePublishers_[i]->msg_;
+      msg.header.stamp = time;
+      msg.header.frame_id = "world";
+      msg.vector.x = footState.contactForce_W.x();
+      msg.vector.y = footState.contactForce_W.y();
+      msg.vector.z = footState.contactForce_W.z();
+      footForcePublishers_[i]->unlockAndPublish();
+    }
+
+    // --- publish F_ratio ---
+    if (footFratioPublishers_[i] && footFratioPublishers_[i]->trylock()) {
+      footFratioPublishers_[i]->msg_.data = footState.F_ratio;
+      footFratioPublishers_[i]->unlockAndPublish();
+    }
+
+    // --- publish F_ratio_delta ---
+    if (footFratioDeltaPublishers_[i] && footFratioDeltaPublishers_[i]->trylock()) {
+      footFratioDeltaPublishers_[i]->msg_.data = footState.F_ratio_delta;
+      // ROS_INFO_STREAM("Foot " << legNames[i] << " F_ratio_delta: " << footState.F_ratio_delta);
+      footFratioDeltaPublishers_[i]->unlockAndPublish();
+    }
+  }
+
+  // Update foot contact estimation
+  if (count % 1 == 0) {
+      footContactEst_-> update();
+  }
+  count++;
+  const auto& feetEstState = footContactEst_-> getLegEstStates();
+  for (size_t i=0; i < legNames.size(); ++i) {
+    const auto& name = legNames[i];
+    auto it = feetEstState.find(name);
+    if (it == feetEstState.end()) continue;
+
+    const auto& footEstState = it->second;
+    contactFlagEstNew[i] = footEstState.isStance;
+
+    if (footContactEstPublishers_[i]->trylock()) {
+      footContactEstPublishers_[i]->msg_.data = contactFlagEstNew[i];
+      footContactEstPublishers_[i]->unlockAndPublish();
+    }
+
+    if (footContactLogOddsPublishers_[i]->trylock()) {
+      footContactLogOddsPublishers_[i]->msg_.data = footEstState.logOdds;
+      footContactLogOddsPublishers_[i]->unlockAndPublish();
+    }
+
+    if (footContactCurrentLogisticPublishers_[i]->trylock()) {
+      footContactCurrentLogisticPublishers_[i]->msg_.data = footEstState.currentLogistic;
+      footContactCurrentLogisticPublishers_[i]->unlockAndPublish();
+    } 
+
+    if (footContactProbStancePublishers_[i]->trylock()) {
+      footContactProbStancePublishers_[i]->msg_.data = footEstState.probStance;
+      footContactProbStancePublishers_[i]->unlockAndPublish();
+    }
+  }
 }
 
 LeggedHilController::~LeggedHilController() {

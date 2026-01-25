@@ -60,6 +60,8 @@ link_directories(
 add_library(${PROJECT_NAME}
         src/LeggedHilController.cpp
         src/LeggedHilPhasePred.cpp
+        src/LeggedFootObs.cpp
+        src/LeggedFootContactEst.cpp
         )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE

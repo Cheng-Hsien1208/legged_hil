@@ -1,7 +1,6 @@
 #pragma once
 
 #include <legged_interface/LeggedInterface.h>
-#include <legged_estimation/StateEstimateBase.h>
 #include <legged_hil_interface/hardware_interface/ImpedanceJointInterface.h>
 
 #include <array>

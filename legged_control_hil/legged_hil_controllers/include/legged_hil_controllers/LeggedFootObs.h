@@ -28,16 +28,21 @@ class LeggedFootObs {
       double contactForceNorm_z = 0.0;                           // Norm of contact force z component
       double F_ratio = 0.0;                                      // Normalized contact force ratio (0.0~1.0)
       double F_ratio_delta = 0.0;                                // Delta of F_ratio (LPF-based)
+      Eigen::Vector3d contactForce_test = Eigen::Vector3d::Zero(); // For testing
     };
 
     LeggedFootObs(const std::string& urdfFile, const std::vector<std::string>& jointNames,
                   const ocs2::CentroidalModelInfo& centroidalInfo, const std::vector<std::string>& footNames,
                   const std::string& csvRootDir = "");
 
-    void updateJointStates(const vector_t& qJoints, const vector_t& vJoints, const vector_t& tauJoints) {
+    void updateJointStates(const vector_t& qJoints, const vector_t& vJoints, const vector_t& aJoints
+      , const vector_t& tauJoints, const vector_t& tauCmdJoints, const Eigen::Vector3d& linearAccel) {
       qJoints_ = qJoints;
       vJoints_ = vJoints;
+      aJoints_ = aJoints;
       tauJoints_ = tauJoints;
+      tauCmdJoints_ = tauCmdJoints;
+      linearAccel_ = linearAccel;
     }
 
     void updateMeasuredRbdState(const vector_t& measuredRbdState) { measuredRbdState_ = measuredRbdState; }
@@ -58,7 +63,7 @@ class LeggedFootObs {
 
 
   private:
-    void buildPinocchioQv_(const ocs2::CentroidalModelInfo& info, vector_t& qPinocchio, vector_t& vPinocchio);
+    void buildPinocchioQv_(const ocs2::CentroidalModelInfo& info, vector_t& qPinocchio, vector_t& vPinocchio, vector_t& aPinocchio);
 
     std::string urdfFile_;
 
@@ -69,10 +74,11 @@ class LeggedFootObs {
 
     vector_t qJoints_;
     vector_t vJoints_;
+    vector_t aJoints_;
     vector_t tauJoints_;
+    vector_t tauCmdJoints_;
+    Eigen::Vector3d linearAccel_ = Eigen::Vector3d::Zero();
     vector_t measuredRbdState_;
-
-    // std::unordered_map<std::string, FootState> footStates_;
 
     double timeSec_ = 0.0;
     double prevTimeSec_ = -1.0;
@@ -83,8 +89,8 @@ class LeggedFootObs {
     double fRatioLpTau_ = 0.005;
         
     // Hampel filter (outlier removal) for joint torque
-    static constexpr int kHampelWindow = 5;  // window size
-    static constexpr double kHampelK = 3.0;  // threshold multiplier
+    static constexpr int kHampelWindow = 10;  // window size
+    static constexpr double kHampelK = 1.0;  // threshold multiplier
 
     // per-joint ring buffer for tau
     std::vector<std::array<double, kHampelWindow>> tauWindow_;

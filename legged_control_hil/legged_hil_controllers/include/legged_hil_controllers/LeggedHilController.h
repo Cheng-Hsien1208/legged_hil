@@ -28,6 +28,8 @@
 
 #include <legged_hil_controllers/LeggedFootContactEst.h>
 
+#include <legged_hil_controllers/JointKalmanFilter.h>
+
 namespace legged {
 using namespace ocs2;
 using namespace legged_robot;
@@ -107,6 +109,8 @@ class LeggedHilController : public controller_interface::MultiInterfaceControlle
   std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::Vector3Stamped>>> footForcePublishers_;
   std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footFratioPublishers_;
   std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footFratioDeltaPublishers_;
+  vector_t tau_prev_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::Vector3Stamped>>> footForceTestPublishers_;
 
   // Foot Contact Estimation
   std::shared_ptr<LeggedFootContactEst> footContactEst_;
@@ -115,7 +119,15 @@ class LeggedHilController : public controller_interface::MultiInterfaceControlle
   std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footContactCurrentLogisticPublishers_;
   std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> footContactProbStancePublishers_;
 
+  // Joint Kalman Filter for acceleration estimation
+  std::shared_ptr<JointKalmanFilter> jointKalmanFilter_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> jointPosEstPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> jointVelEstPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> jointAccelEstPublishers_;
 
+  // Joint Ground Truth
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> jointPosGtPublishers_;
+  std::vector<std::shared_ptr<realtime_tools::RealtimePublisher<std_msgs::Float64>>> jointVelGtPublishers_;
 
  private:
   std::thread mpcThread_;

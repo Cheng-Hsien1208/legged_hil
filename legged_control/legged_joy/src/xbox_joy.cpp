@@ -315,7 +315,7 @@ void XboxJoyNode::controlLoop() {
     if (RB) {
       if (Y && !prevY) (void)setGait("stance");
       if (X && !prevX) (void)setGait("trot");
-      if (A && !prevA) (void)setGait("static_walk");
+      if (A && !prevA) (void)setGait("bound");
       if (B && !prevB) (void)setGait("flying_trot");
     }
     prevY = Y; prevX = X; prevA = A; prevB = B;

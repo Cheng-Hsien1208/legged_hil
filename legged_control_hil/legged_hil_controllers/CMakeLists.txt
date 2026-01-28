@@ -62,6 +62,7 @@ add_library(${PROJECT_NAME}
         src/LeggedHilPhasePred.cpp
         src/LeggedFootObs.cpp
         src/LeggedFootContactEst.cpp
+        src/JointKalmanFilter.cpp
         )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE

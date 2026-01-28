@@ -115,10 +115,11 @@ LeggedFootObs::LeggedFootObs(const std::string& urdfFile, const std::vector<std:
   initCsvIfNeeded_();
 }
 
-void LeggedFootObs::buildPinocchioQv_(const ocs2::CentroidalModelInfo& info, vector_t& qPinocchio, vector_t& vPinocchio) {
+void LeggedFootObs::buildPinocchioQv_(const ocs2::CentroidalModelInfo& info, vector_t& qPinocchio, vector_t& vPinocchio, vector_t& aPinocchio) {
   // measuredRbdState layout: [rpy(3), pos(3), qJoints(n), omega(3), v(3), vJoints(n)]
   // qPinocchio: [base_pos(3), base_rpy_zyx(3), joint_pos(n)]
   // vPinocchio: [base_lin_vel(3), base_rpy_dot(3), joint_vel(n)]
+  // aPinocchio: [base_lin_acc(3), base_rpy_ddot(3), joint_acc(n)]
 
   const int n = static_cast<int>(info.actuatedDofNum);
 
@@ -139,6 +140,19 @@ void LeggedFootObs::buildPinocchioQv_(const ocs2::CentroidalModelInfo& info, vec
     ocs2::getEulerAnglesZyxDerivativesFromGlobalAngularVelocity<ocs2::scalar_t>(
       qPinocchio.segment<3>(3), measuredRbdState_.segment<3>(omegaOffset)); // base rpy dot
   vPinocchio.tail(n) = vJoints_.head(n);  // joint velocities
+
+  const Eigen::Vector3d rpy = qPinocchio.segment<3>(3);
+  Eigen::AngleAxisd Rz(rpy(0), Eigen::Vector3d::UnitZ());
+  Eigen::AngleAxisd Ry(rpy(1), Eigen::Vector3d::UnitY());
+  Eigen::AngleAxisd Rx(rpy(2), Eigen::Vector3d::UnitX());
+  Eigen::Matrix3d R_WB = (Rz * Ry * Rx).toRotationMatrix();  // ZYX
+  Eigen::Vector3d g_W(0.0, 0.0, -9.81);
+  Eigen::Vector3d a_base_W = R_WB * linearAccel_ + g_W;
+
+  aPinocchio.head<3>() = a_base_W;
+  aPinocchio.segment<3>(3) = Eigen::Vector3d::Zero();
+  aPinocchio.tail(n) = aJoints_.head(n); // joint accelerations
+
 }
 
 void LeggedFootObs::initHampelBuffers_(int nJoints) {
@@ -262,11 +276,12 @@ void LeggedFootObs::update() {
   const int n = static_cast<int>(info.actuatedDofNum);
 
   // -----------------------------
-  // 1) Build q/v
+  // 1) Build q/v/a
   // -----------------------------
   vector_t qPinocchio(info.generalizedCoordinatesNum);
   vector_t vPinocchio(info.generalizedCoordinatesNum);
-  buildPinocchioQv_(info, qPinocchio, vPinocchio);
+  vector_t aPinocchio(info.generalizedCoordinatesNum);
+  buildPinocchioQv_(info, qPinocchio, vPinocchio, aPinocchio);
 
   // -----------------------------
   // 2) FK cache (for ee position/velocity)
@@ -302,6 +317,10 @@ void LeggedFootObs::update() {
   // -----------------------------
   // 4) Compute contact forces
   // -----------------------------
+  const int jointOffset = model.nv - static_cast<int>(info.actuatedDofNum);
+  vector_t tau_rnea = pinocchio::rnea(model, data, qPinocchio, vPinocchio, aPinocchio);
+  vector_t tau_int = tau_rnea.segment(jointOffset, static_cast<int>(info.actuatedDofNum));
+
   for (int leg = 0; leg < 4; ++leg) {
     const std::string& footName = footNames_[leg];
     const std::string& jointNameHAA = jointNames_[leg * 3];
@@ -330,18 +349,49 @@ void LeggedFootObs::update() {
     tau_leg_raw(1) = tauJoints_(leg * 3 + 1);
     tau_leg_raw(2) = tauJoints_(leg * 3 + 2);
 
+    // subtract internal torques
+    Eigen::Vector3d tau_leg_ext;
+    tau_leg_ext(0) = tau_leg_raw(0) - tau_int(leg * 3);
+    tau_leg_ext(1) = tau_leg_raw(1) - tau_int(leg * 3 + 1);
+    tau_leg_ext(2) = tau_leg_raw(2) - tau_int(leg * 3 + 2);
+
     // Hampel-filtered tau (outlier removal)
     Eigen::Vector3d tau_leg;
-    tau_leg(0) = hampelFilter_(leg * 3 + 0, tau_leg_raw(0));
-    tau_leg(1) = hampelFilter_(leg * 3 + 1, tau_leg_raw(1));
-    tau_leg(2) = hampelFilter_(leg * 3 + 2, tau_leg_raw(2));
+    tau_leg(0) = hampelFilter_(leg * 3 + 0, tau_leg_ext(0));
+    tau_leg(1) = hampelFilter_(leg * 3 + 1, tau_leg_ext(1));
+    tau_leg(2) = hampelFilter_(leg * 3 + 2, tau_leg_ext(2));
 
-    // estimate contact force
-    Eigen::Vector3d contactForce = J_leg.transpose().colPivHouseholderQr().solve(tau_leg);
-    footStates_[footName].contactForce_W = contactForce;
+    {
+      // estimate contact force
+      const double lambda = 1e-2; // 1e-4 ~ 1e-2 試
+      Eigen::Matrix3d A = J_leg * J_leg.transpose() + lambda * Eigen::Matrix3d::Identity();
+      Eigen::Vector3d b = J_leg * tau_leg;
+      Eigen::Vector3d contactForce = A.ldlt().solve(b);
 
-    // store contactForceNorm_z
-    footStates_[footName].contactForceNorm_z = std::abs(contactForce.z());
+      footStates_[footName].contactForce_W = contactForce;
+      footStates_[footName].contactForceNorm_z = std::abs(contactForce.z());
+    }
+
+    {
+      // tau - tau_cmd version (experimental)
+      Eigen::Vector3d tau_cmd_leg;
+      tau_cmd_leg(0) = tauCmdJoints_(leg * 3);
+      tau_cmd_leg(1) = tauCmdJoints_(leg * 3 + 1);
+      tau_cmd_leg(2) = tauCmdJoints_(leg * 3 + 2);
+
+      Eigen::Vector3d tau_leg_cmd_ext;
+      tau_leg_cmd_ext(0) = tau_leg_raw(0) - tau_cmd_leg(0);
+      tau_leg_cmd_ext(1) = tau_leg_raw(1) - tau_cmd_leg(1);
+      tau_leg_cmd_ext(2) = tau_leg_raw(2) - tau_cmd_leg(2);
+
+      // estimate contact force
+      const double lambda = 1e-2; // 1e-4 ~ 1e-2 試
+      Eigen::Matrix3d A = J_leg * J_leg.transpose() + lambda * Eigen::Matrix3d::Identity();
+      Eigen::Vector3d b = J_leg * tau_leg_cmd_ext;
+      Eigen::Vector3d contactForce = A.ldlt().solve(b);
+      
+      footStates_[footName].contactForce_test = contactForce;
+    }
   }
 
   // -----------------------------
